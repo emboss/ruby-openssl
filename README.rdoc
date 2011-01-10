@@ -1,0 +1,23 @@
+== ruby-openssl
+
+A fork of the Ruby standard library extension "openssl". You will find new and experimental features that are not yet available in the official distribution. 
+
+== Requirements
+
+To use the library you should use the latest Ruby version and make sure that you are running Ruby with an OpenSSL version >= 1.0.0. You should also ensure that your Ruby installation was built with '--enable-shared'.
+
+== Installation
+
+Simply download the sources, unpack them in a directory and run 'ruby extconf.rb'. Then run 'make' and replace the library openssl.so (or .dll or .dynlib) in <RUBY_HOME>/lib/ruby/1.9.1/i686-linux. 
+
+== Usage
+
+You can browse the RDoc documentation to find out about the new features. The tests in test/openssl are also a good place to start finding out about the new functionality.
+
+== LICENSE:
+
+This program is licenced under the same licence as Ruby.
+
+Copyright (c) 2011
+* {Martin Bosslet}[https://github.com/emboss]
+
