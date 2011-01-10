@@ -8,7 +8,7 @@ To use the library you should use the latest Ruby version and make sure that you
 
 == Installation
 
-Simply download the sources, unpack them in a directory and run 'ruby extconf.rb'. Then run 'make' and replace the library openssl.so (or .dll or .dynlib) in <RUBY_HOME>/lib/ruby/1.9.1/i686-linux. 
+Simply download the sources, unpack them in a directory and run 'ruby extconf.rb'. Then run 'make' and replace the library openssl.so (or .dll or .dynlib) in <RUBY_HOME>/lib/ruby/1.9.1/i686-linux (it's the directory for native libraries, may deviate for your particular installation).
 
 == Usage
 
