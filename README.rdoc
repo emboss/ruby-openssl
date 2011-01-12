@@ -1,6 +1,6 @@
 == ruby-openssl
 
-A fork of the Ruby standard library extension "openssl". You will find new and experimental features that are not yet available in the official distribution. 
+A development repository for the Ruby standard library "ext/openssl". You will find new and experimental features that are not yet available in the official distribution. Features will eventually be merged with main Ruby development once they are stable. Stable features will also be published as a {gem}[https://github.com/emboss/openssl-ext] to make them readily available.  
 
 == Requirements
 
