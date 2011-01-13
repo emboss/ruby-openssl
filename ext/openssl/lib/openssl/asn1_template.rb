@@ -13,7 +13,8 @@
 = Version
   $Id: asn1_template.rb $
 =end
-require 'pp'
+require "openssl"
+require "pp"
 
 module OpenSSL
   module ASN1
@@ -25,9 +26,9 @@ module OpenSSL
     module Template
 
       def to_der
-        asn1_ary = self.class._asn1
-        pp asn1_ary
-        return nil if (asn1_ary == nil || asn1_ary.empty?)
+        asn1 = self.class._asn1
+        pp asn1
+        return nil if asn1 == nil
         asn1_obj = to_der_recursive(asn1)
         asn1_obj.to_der
       end
@@ -35,44 +36,46 @@ module OpenSSL
       private
 
       def to_der_recursive(asn1)
-        if asn1.is_a? Array
-          return nil
+        case asn1
+        when Array
+          content = Array.new
+          asn1.each do |element|
+            content << to_der_recursive(element)
+          end
+          return OpenSSL::ASN1::Sequence.new(content)
         end
 
-        case asn1.type
-        when :ASN1_BOOLEAN
-          return OpenSSL::ASN1::Boolean.new(send(asn1.name))
-        when :ASN1_INTEGER
-          return OpenSSL::ASN1::Integer.new(send(asn1.name))
-        end
+        #primitive
+        asn1[:type].new(send(asn1[:name]))
       end
 
       def self.included(base)
         base.extend ClassMethods
       end
 
-      Meta = Struct.new(:name, :type, :optional, :tag, :tag_mode)
-
       module ClassMethods
         attr_reader :_asn1
-        
-        def asn1_boolean(name, optional, tag=nil, tag_mode=nil)
-          _declare_primitive(:ASN1_BOOLEAN, name, optional, tag, tag_mode)
+
+        DEF_OPTS_PRIM = { optional: false, tag: nil, tagging: nil }
+
+        def asn1_boolean(name, opts=nil)
+          @_asn1 << _declare_primitive(OpenSSL::ASN1::Boolean, name, opts)
         end
 
-        def asn1_integer(name, optional, tag=nil, tag_mode=nil)
-          _declare_primitive(:ASN1_INTEGER, name, optional, tag, tag_mode)
+        def asn1_integer(name, opts=nil)
+          @_asn1 << _declare_primitive(OpenSSL::ASN1::Integer, name, opts)
         end
 
-        def asn1_sequence(name, optional, tag=nil, tag_mode=nil, &inner)
-
+        def asn1_template(&inner)
+          @_asn1 = Array.new
+          yield
         end
 
-        def _declare_primitive(type, name, optional, tag, tag_mode)
+        def _declare_primitive(type, name, opts)
           attr_accessor name
-          @_asn1 || @_asn1 = Array.new
-          info = Meta.new(name, type, optional, tag, tag_mode)
-          @_asn1 << info
+          opts || opts = {}
+          opts = DEF_OPTS_PRIM.merge(opts)
+          { :name => name, :type => type }.merge(opts)
         end
       end
     end
@@ -82,11 +85,20 @@ end
 class Test
   include OpenSSL::ASN1::Template
 
-#  asn1_boolean :mudda, :OPTIONAL
-  asn1_integer :deine, :MANDATORY
+  asn1_template OpenSSL::ASN1::Sequence do
+    asn1_boolean :bool_val, { optional: true }
+    asn1_integer :int_val
+    asn1_sequence :seq_val do
+      asn1_boolean :inner_bool
+      asn1_integer :inner_int
+    end
+    asn1_integer :other_int
+    asn1_template Extensions, :extensions, { optional: true, tag: 0, tagging: :EXPLICIT }
+  end
+
 end
 
 t = Test.new
-#t.mudda = "Test"
-t.deine = 5
+t.bool_val = false
+t.int_val = 5
 pp t.to_der
