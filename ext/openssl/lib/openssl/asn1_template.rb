@@ -25,24 +25,48 @@ module OpenSSL
     #includes this module.
     module Template
 
+      DEF_OPTS_INIT = { tag: nil, 
+                        tagging: nil, 
+                        infinite_length: false,
+                        tag_class: nil }
+                        
+      def initialize(opts=nil)
+        opts || opts = {}
+        opts = DEF_OPTS_INIT.merge(opts)
+        @type = self.class._type
+        @tag = opts[:tag]
+        @tagging = opts[:tagging]
+        @infinite_length = opts[:infinite_length]
+        @tag_class = opts[:tag_class]
+      end
+      
       def to_der
-        asn1 = self.class._asn1
-        pp asn1
-        return nil if asn1 == nil
-        asn1_obj = to_der_recursive(asn1)
-        asn1_obj.to_der
+        asn1_obj = to_asn1
+        asn1_obj ? asn1_obj.to_der : nil
       end
 
+      def to_asn1
+        asn1 = self.class._asn1
+        value = asn1 ? to_asn1_obj_recursive(asn1) : nil
+        constructed = unless @tag
+                        @type.new(value)
+                      else
+                        @type.new(value, @tag, @tagging, @tag_class)
+                      end
+        constructed.infinite_length = @infinite_length if @infinite_length
+        constructed
+      end
+      
       private
 
-      def to_der_recursive(asn1)
+      def to_asn1_obj_recursive(asn1)
         case asn1
         when Array
           content = Array.new
           asn1.each do |element|
-            content << to_der_recursive(element)
+            content << to_asn1_obj_recursive(element)
           end
-          return OpenSSL::ASN1::Sequence.new(content)
+          return content
         end
 
         #primitive
@@ -55,8 +79,13 @@ module OpenSSL
 
       module ClassMethods
         attr_reader :_asn1
+        attr_reader :_type
 
-        DEF_OPTS_PRIM = { optional: false, tag: nil, tagging: nil }
+        DEF_OPTS_PRIM = { optional: false, 
+                          tag: nil, 
+                          tagging: nil, 
+                          infinite_length: false,
+                          tag_class: nil }
 
         def asn1_boolean(name, opts=nil)
           @_asn1 << _declare_primitive(OpenSSL::ASN1::Boolean, name, opts)
@@ -66,16 +95,37 @@ module OpenSSL
           @_asn1 << _declare_primitive(OpenSSL::ASN1::Integer, name, opts)
         end
 
-        def asn1_template(&inner)
+        def asn1_template(type, name, opts=nil, &inner)
+          
+        end
+        
+        def asn1_declare(type)
           @_asn1 = Array.new
-          yield
+          @_type = type
+          cur_asn1 = @_asn1
+          last_asn1 = nil
+          
+          define_method define_prim do |meth_name, type|
+            define_method "#{meth_name}" do |name, opts=nil|
+              cur_asn1 << _declare_primitive(type, name, opts)
+            end
+          end
+          
+          define_prim("asn1_boolean", OpenSSL::ASN1::Boolean)
+          define_prim("asn1_integer", OpenSSL::ASN1::Integer)
+          
+          if block_given?
+            yield
+          else 
+            raise ArgumentError("asn1_declare must be given a block.")
+          end
         end
 
         def _declare_primitive(type, name, opts)
           attr_accessor name
           opts || opts = {}
           opts = DEF_OPTS_PRIM.merge(opts)
-          { :name => name, :type => type }.merge(opts)
+          { name: name, type: type }.merge(opts)
         end
       end
     end
@@ -85,20 +135,21 @@ end
 class Test
   include OpenSSL::ASN1::Template
 
-  asn1_template OpenSSL::ASN1::Sequence do
+  asn1_declare OpenSSL::ASN1::Sequence do
     asn1_boolean :bool_val, { optional: true }
     asn1_integer :int_val
-    asn1_sequence :seq_val do
-      asn1_boolean :inner_bool
-      asn1_integer :inner_int
-    end
-    asn1_integer :other_int
-    asn1_template Extensions, :extensions, { optional: true, tag: 0, tagging: :EXPLICIT }
+    #asn1_sequence :seq_val do
+    #  asn1_boolean :inner_bool
+    #  asn1_integer :inner_int
+    #end
+    #asn1_integer :other_int
+    #asn1_template Extensions, :extensions, { optional: true, tag: 0, tagging: :EXPLICIT }
   end
-
 end
 
 t = Test.new
 t.bool_val = false
 t.int_val = 5
-pp t.to_der
+asn1 = t.to_asn1
+pp asn1
+pp asn1.to_der
