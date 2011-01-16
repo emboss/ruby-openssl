@@ -25,19 +25,18 @@ module OpenSSL
     #includes this module.
     module Template
 
-      DEF_OPTS_INIT = { tag: nil, 
+      DEF_OPTS_ASN1 = { optional: false, 
+                        tag: nil, 
                         tagging: nil, 
                         infinite_length: false,
                         tag_class: nil }
                         
+      #TODO: Handle EndOfContent
+                  
       def initialize(opts=nil)
         opts || opts = {}
-        opts = DEF_OPTS_INIT.merge(opts)
-        @type = self.class._type
-        @tag = opts[:tag]
-        @tagging = opts[:tagging]
-        @infinite_length = opts[:infinite_length]
-        @tag_class = opts[:tag_class]
+        opts = DEF_OPTS_ASN1.merge(opts)
+        @_options = opts
       end
       
       def to_der
@@ -46,31 +45,39 @@ module OpenSSL
       end
 
       def to_asn1
-        asn1 = self.class._asn1
-        value = asn1 ? to_asn1_obj_recursive(asn1) : nil
-        constructed = unless @tag
-                        @type.new(value)
-                      else
-                        @type.new(value, @tag, @tagging, @tag_class)
-                      end
-        constructed.infinite_length = @infinite_length if @infinite_length
-        constructed
+        definition = self.class._definition
+        definition[:options] = @_options
+        definition ? to_asn1_obj_recursive(definition) : nil
       end
       
       private
 
-      def to_asn1_obj_recursive(asn1)
-        case asn1
-        when Array
-          content = Array.new
-          asn1.each do |element|
-            content << to_asn1_obj_recursive(element)
+      def to_asn1_obj_recursive(definition)
+        options = definition[:options]
+        if definition[:inner_def] != nil
+          type = definition[:type]
+          value = Array.new
+          definition[:inner_def].each do |element|
+            value << to_asn1_obj_recursive(element)
           end
-          return content
+          constructed = unless options && options[:tag]
+                          type.new(value)
+                        else
+                          type.new(value, options[:tag], options[:tagging], options[:tag_class])
+                        end
+          constructed.infinite_length = options[:infinite_length] if options
+          return constructed
         end
 
         #primitive
-        asn1[:type].new(send(asn1[:name]))
+        unless options && options[:tag]
+          definition[:type].new(send(definition[:name]))
+        else
+          definition[:type].new(send(definition[:name]),
+                                options[:tag],
+                                options[:tagging],
+                                options[:tag_class])
+        end
       end
 
       def self.included(base)
@@ -78,54 +85,58 @@ module OpenSSL
       end
 
       module ClassMethods
-        attr_reader :_asn1
-        attr_reader :_type
-
-        DEF_OPTS_PRIM = { optional: false, 
-                          tag: nil, 
-                          tagging: nil, 
-                          infinite_length: false,
-                          tag_class: nil }
-
-        def asn1_boolean(name, opts=nil)
-          @_asn1 << _declare_primitive(OpenSSL::ASN1::Boolean, name, opts)
-        end
-
-        def asn1_integer(name, opts=nil)
-          @_asn1 << _declare_primitive(OpenSSL::ASN1::Integer, name, opts)
-        end
-
+        attr_reader :_definition
+        
         def asn1_template(type, name, opts=nil, &inner)
-          
+          #like this
+          templ.new(tag, tagging, infinite_length, tag_class).to_asn1
         end
         
         def asn1_declare(type)
-          @_asn1 = Array.new
-          @_type = type
-          cur_asn1 = @_asn1
-          last_asn1 = nil
-          
-          define_method define_prim do |meth_name, type|
-            define_method "#{meth_name}" do |name, opts=nil|
-              cur_asn1 << _declare_primitive(type, name, opts)
+          @_definition = { type: type, opts: nil, inner_def: Array.new }
+          cur_def = @_definition
+                    
+          eigenclass = class << self; self; end
+          eigenclass.instance_eval do
+            
+            define_method :declare_prim do |meth_name, type|
+              eigenclass.instance_eval do
+                define_method "#{meth_name}" do |name, opts=nil|
+                  cur_def[:inner_def] << _declare_primitive(type, name, opts)
+                end
+              end
+            end
+            
+            define_method :declare_cons do |meth_name, type|
+              if !block_given?
+                raise ArgumentError("#{meth_name} must be given a block.")
+              end
+              eigenclass.instance_eval do
+                define_method "#{meth_name}" do |opts=nil, &proc|
+                  tmp_def = cur_def
+                  cur_def = { type: type, opts: opts, inner_def: Array.new }
+                  proc.call
+                  tmp_def[:inner_def] << cur_def
+                  cur_def = tmp_def
+                end
+              end
             end
           end
+                              
+          declare_prim("asn1_boolean", OpenSSL::ASN1::Boolean)
+          declare_prim("asn1_integer", OpenSSL::ASN1::Integer)
           
-          define_prim("asn1_boolean", OpenSSL::ASN1::Boolean)
-          define_prim("asn1_integer", OpenSSL::ASN1::Integer)
+          declare_cons("asn1_sequence", OpenSSL::ASN1::Sequence)
           
-          if block_given?
-            yield
-          else 
-            raise ArgumentError("asn1_declare must be given a block.")
-          end
+          yield
         end
 
         def _declare_primitive(type, name, opts)
           attr_accessor name
           opts || opts = {}
-          opts = DEF_OPTS_PRIM.merge(opts)
-          { name: name, type: type }.merge(opts)
+          opts = DEF_OPTS_ASN1.merge(opts)
+          opts[:name] = name
+          { type: type, name: name, options: opts, inner_def: nil }
         end
       end
     end
@@ -138,11 +149,11 @@ class Test
   asn1_declare OpenSSL::ASN1::Sequence do
     asn1_boolean :bool_val, { optional: true }
     asn1_integer :int_val
-    #asn1_sequence :seq_val do
-    #  asn1_boolean :inner_bool
-    #  asn1_integer :inner_int
-    #end
-    #asn1_integer :other_int
+    asn1_sequence do
+      asn1_integer :inner_int
+      asn1_boolean :inner_bool
+    end
+    asn1_integer :other_int
     #asn1_template Extensions, :extensions, { optional: true, tag: 0, tagging: :EXPLICIT }
   end
 end
@@ -150,6 +161,9 @@ end
 t = Test.new
 t.bool_val = false
 t.int_val = 5
+t.inner_int = 10
+t.inner_bool = true
+t.other_int = 0
 asn1 = t.to_asn1
 pp asn1
 pp asn1.to_der
