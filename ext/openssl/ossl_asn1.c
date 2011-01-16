@@ -486,10 +486,33 @@ static ossl_asn1_info_t ossl_asn1_info[] = {
     { "CHARACTER_STRING",  NULL,                  },  /* 29 */
     { "BMPSTRING",         &cASN1BMPString,       },  /* 30 */
 };
+    
+    
 
 int ossl_asn1_info_size = (sizeof(ossl_asn1_info)/sizeof(ossl_asn1_info[0]));
 
 static int ossl_asn1_default_tag(VALUE obj);
+
+static VALUE
+ossl_asn1_default_tag_class(VALUE self, VALUE klass)
+{
+    int i;
+    for(i = 0; i < ossl_asn1_info_size; i++){
+        if(ossl_asn1_info[i].klass && (klass == *ossl_asn1_info[i].klass))
+            return INT2NUM(i);
+    }
+    
+    ossl_raise(eASN1Error, "universal tag for %s not found",
+	       rb_class2name(klass));
+
+    return Qnil; /* dummy */
+}
+
+static VALUE
+ossl_asn1_default_tag_public(VALUE self, VALUE obj)
+{
+  return INT2NUM(ossl_asn1_default_tag(obj));
+}
 
 ASN1_TYPE*
 ossl_asn1_get_asn1type(VALUE obj)
@@ -573,7 +596,7 @@ ossl_asn1_default_tag(VALUE obj)
     int i;
 
     for(i = 0; i < ossl_asn1_info_size; i++){
-	if(ossl_asn1_info[i].klass &&
+        if(ossl_asn1_info[i].klass &&
 	   rb_obj_is_kind_of(obj, *ossl_asn1_info[i].klass)){
 	    return i;
 	}
@@ -1190,6 +1213,8 @@ Init_ossl_asn1()
     rb_define_module_function(mASN1, "traverse", ossl_asn1_traverse, 1);
     rb_define_module_function(mASN1, "decode", ossl_asn1_decode, 1);
     rb_define_module_function(mASN1, "decode_all", ossl_asn1_decode_all, 1);
+    rb_define_module_function(mASN1, "default_tag_class", ossl_asn1_default_tag_class, 1);
+    rb_define_module_function(mASN1, "default_tag", ossl_asn1_default_tag_public, 1);
     ary = rb_ary_new();
     rb_define_const(mASN1, "UNIVERSAL_TAG_NAME", ary);
     for(i = 0; i < ossl_asn1_info_size; i++){
