@@ -35,10 +35,12 @@ module OpenSSL
                         infinite_length: false,
                         tag_class: nil }
                         
-      def initialize(opts=nil)
-        opts || opts = {}
-        opts = DEF_OPTS_ASN1.merge(opts)
-        @_options = opts
+      def initialize(options={})
+        options = DEF_OPTS_ASN1.merge(options)
+        @_options = options
+        definition = self.class._definition
+        definition[:options] = options
+        initialize_recursive(definition)
       end
       
       def to_der
@@ -49,10 +51,25 @@ module OpenSSL
       def to_asn1
         definition = self.class._definition
         definition[:options] = @_options
-        definition ? to_asn1_obj_recursive(definition) : nil
+        to_asn1_obj_recursive(definition)
       end
       
       private
+      
+      def initialize_recursive(definition)
+        inner_def = definition[:inner_def]
+        if inner_def
+          inner_def.each do |deff|
+            initialize_recursive(deff)
+          end
+        else
+          type = definition[:type]
+          if type.respond_to? :asn1_declare
+            instance = type.new(definition[:options])
+            instance_variable_set("@" + definition[:name].to_s, instance)
+          end
+        end
+      end
 
       def to_asn1_obj_recursive(definition)
         options = definition[:options]
@@ -61,13 +78,21 @@ module OpenSSL
         inf_length = options[:infinite_length]
         tag = options[:tag]
         tagging = options[:tagging]
-        tag_class = options[:tag_class]
+        tag_class = self.class._determine_tag_class(tag, options[:tag_class])
         
         if inner_def
           to_asn1_obj_cons(type, inner_def, inf_length, tag, tagging, tag_class)
         else
           name = definition[:name]
           value = instance_variable_get("@" + name.to_s)
+          unless value
+            unless options[:optional]
+              raise OpenSSL::ASN1::ASN1Error.new("Manadatory value #{name} not set.")
+            else
+              return nil
+            end
+          end
+          
           if value.respond_to? :to_asn1
             to_asn1_obj_templ(value, name, options)
           else
@@ -84,8 +109,10 @@ module OpenSSL
       def to_asn1_obj_cons(type, inner_def, inf_length, tag, tagging, tag_class)
         value = Array.new
         inner_def.each do |element|
-          value << to_asn1_obj_recursive(element)
+          obj = to_asn1_obj_recursive(element)
+          value << obj if obj
         end
+        return nil if value.empty?
         value << OpenSSL::ASN1::EndOfContent.new if inf_length
         constructed = unless tag
                         type.new(value)
@@ -109,7 +136,7 @@ module OpenSSL
       
       def to_asn1_obj_prim_inf(value, type, name, tag, tagging, tag_class)
         tag_class = tag_class || :UNIVERSAL
-        tag = tag || OpenSSL::ASN1.default_tag_class(type)
+        tag = tag || OpenSSL::ASN1.default_tag_of_class(type)
         case value
         when Array
           cons_value = Array.new
@@ -136,7 +163,7 @@ module OpenSSL
         attr_reader :_definition
         
         def asn1_declare(type)
-          @_definition = { type: type, options: nil, inner_def: Array.new }
+          @_definition = { type: type, options: {}, inner_def: Array.new }
           cur_def = @_definition
                     
           eigenclass = class << self; self; end
@@ -167,7 +194,7 @@ module OpenSSL
               end
             end
             
-            define_method :asn1_template do |type, name, opts={}|
+            define_method :asn1_template do |name, type, opts={}|
                 attr_accessor name
                 opts = DEF_OPTS_ASN1.merge(opts)
                 cur_def[:inner_def] << { type: type, name: name, options: opts, inner_def: nil }
@@ -207,25 +234,168 @@ module OpenSSL
           opts = DEF_OPTS_ASN1.merge(opts)
           { type: type, name: name, options: opts, inner_def: nil }
         end
+        
+        def _determine_tag_class(tag, tag_class)
+          return tag_class if tag_class
+          if tag
+            :CONTEXT_SPECIFIC
+          else
+            :UNIVERSAL
+          end
+        end
+        
+        def parse(asn1, options={})
+          options = DEF_OPTS_ASN1.merge(options)
+          definition = @_definition
+          definition[:options] = options
+          
+          unless asn1 || options[:optional]
+            raise OpenSSL::ASN1::ASN1Error.new(
+              "Mandatory parameter not set. Type: #{definition[:type]} " +
+              " Name: #{definition[:name]}")
+          end
+          return nil unless asn1
+                    
+          obj = self.new(options)
+          parse_recursive(obj, asn1, definition)
+          obj
+        end
+        
+        private
+        
+        def parse_recursive(obj, asn1, definition)
+          options = definition[:options]
+          inner_def = definition[:inner_def]
+          inf_length = options[:infinite_length]
+          type = definition[:type]
+          optional = options[:optional]
+          
+          check_asn1(asn1, type, options)
+          
+          unless inner_def
+            name = definition[:name]
+            if type.respond_to? :asn1_declare
+              instance = type.parse(asn1, options)
+              obj.instance_variable_set("@" + name.to_s, instance)
+            else
+              unless inf_length
+                obj.instance_variable_set("@" + name.to_s, asn1.value)
+              else
+                parse_prim_inf(obj, name, asn1, type)
+              end
+            end
+          else
+            parse_cons(obj, asn1, inner_def, inf_length)
+          end
+        end
+        
+        def parse_cons(obj, asn1, inner_def, inf_length)
+          i = 0
+          seq = asn1.value
+          max_size = inner_def.size
+          if inf_length
+            max_size += 1
+          end
+          min_size = min_size(inner_def)
+          size = seq.size
+          if size > max_size || size < min_size
+            raise OpenSSL::ASN1::ASN1Error.new(
+              "Expected #{min_size}..#{max_size} values. Got #{size}")
+          end
+          inner_def.each do |definition|
+            inner_asn1 = seq[i]
+            if match(inner_asn1, definition[:type], definition[:options][:tag])
+              parse_recursive(obj, inner_asn1, definition)
+              i += 1
+            else
+              unless definition[:options][:optional]
+                raise OpenSSL::ASN1::ASN1Error.new(
+                  "Mandatory parameter not set. Type: #{definition[:type]} " +
+                  " Name: #{definition[:name]}")
+              end
+            end
+          end
+          if inf_length && 
+             seq[i].tag != OpenSSL::ASN1::END_OF_CONTENT
+            raise OpenSSL::ASN1::ASN1Error.new(
+              "Expected END_OF_CONTENT. Got #{seq[i].tag}")
+          end
+        end
+        
+        def parse_prim_inf(obj, name, asn1, type)
+          tag = OpenSSL::ASN1.default_tag_of_class(type)
+          value = Array.new
+          asn1.each do |part|
+            unless part.tag == OpenSSL::ASN1::END_OF_CONTENT
+              if part.tag != tag
+                raise OpenSSL::ASN1::ASN1Error.new(
+                  "Tag mismatch for infinite length primitive " +
+                  "value. Expected: #{tag} Got: #{part.tag}")
+              end
+              value << part.value 
+            end
+          end
+          obj.instance_variable_set("@" + name.to_s, value)
+        end
+        
+        def match(asn1, type, tag)
+          unless tag
+            unless type.respond_to? :asn1_declare
+              tmp_type = type
+            else
+              tmp_type = type._definition[:type]
+            end
+            tag = OpenSSL::ASN1.default_tag_of_class(tmp_type)
+          end
+          
+          if asn1.tag == tag
+            true
+          else
+            false
+          end
+        end
+        
+        def check_asn1(asn1, type, options)
+          tag = options[:tag]
+          tagging = options[:tagging]
+          tag_class = _determine_tag_class(tag, options[:tag_class])
+          
+          if tag
+            unless asn1.tag == tag && asn1.tagging == tagging
+              raise OpenSSL::ASN1::ASN1Error.new(
+                "Tagging mismatch. Expected: #{tag} #{tagging} " +
+                "Got: #{asn1.tag} #{asn1.tagging}")
+            end
+          else
+            unless type.respond_to? :asn1_declare
+              dtag = OpenSSL::ASN1.default_tag_of_class(type)
+              if asn1.tag != dtag
+                raise OpenSSL::ASN1::ASN1Error.new(
+                  "Type mismatch. Expected: #{type} Got: #{asn1}")
+              end
+            end
+          end
+          if asn1.tag_class != tag_class
+            raise OpenSSL::ASN1::ASN1Error.new(
+              "Tag class mismatch. Expected: #{tag_class} " +
+              "Got: #{asn1.tag_class}")
+          end
+        end
+        
+        def min_size(inner_def)
+          min_size = 0
+          inner_def.each do |definition|
+            unless definition[:options][:optional]
+              min_size += 1
+            end
+          end
+          min_size
+        end
+        
       end
     end
   end
 end
-
-#class Test
-#  include OpenSSL::ASN1::Template
-
-#  asn1_declare OpenSSL::ASN1::Sequence do
-#    asn1_boolean :bool_val, { optional: true }
-#    asn1_integer :int_val
-#    asn1_sequence ({ infinite_length: true }) do
-#      asn1_integer :inner_int
-#      asn1_boolean :inner_bool
-#    end
-#    asn1_octet_string :bytes, { infinite_length: true }
-#    #asn1_template Extensions, :extensions, { optional: true, tag: 0, tagging: :EXPLICIT }
-#  end
-#end
 
 class Validity
   include OpenSSL::ASN1::Template
@@ -241,17 +411,28 @@ class Certificate
   
   asn1_declare OpenSSL::ASN1::Sequence do
     asn1_printable_string :subject
-    asn1_template Validity, :validity
+    asn1_integer :version, { optional: true }
+    asn1_boolean :qualified, { optional: true }
+    asn1_printable_string :issuer
+    asn1_template :validity, Validity
   end
 end
 
-v = Validity.new
-v.begin = Time.new
-v.end = Time.new
+
 c = Certificate.new
 c.subject = "Martin"
-c.validity = v
+c.version = 5
+c.issuer = "Issuer"
+c.validity.begin = Time.new
+c.validity.end = Time.new
 
 asn1 = c.to_asn1
-pp asn1
-pp asn1.to_der
+mod_asn1 = Array.new
+asn1.each do |e|
+  mod_asn1 << e unless e.value == "Issuer"
+end
+der = OpenSSL::ASN1::Sequence.new(asn1).to_der
+pp der
+c2 = Certificate.parse(OpenSSL::ASN1.decode(der))
+pp c2
+puts c2.to_der == der

@@ -454,7 +454,7 @@ typedef struct {
 } ossl_asn1_info_t;
 
 static ossl_asn1_info_t ossl_asn1_info[] = {
-    { "EOC",               &cASN1EndOfContent,    },  /*  0 */
+    { "END_OF_CONTENT",    &cASN1EndOfContent,    },  /*  0 */
     { "BOOLEAN",           &cASN1Boolean,         },  /*  1 */
     { "INTEGER",           &cASN1Integer,         },  /*  2 */
     { "BIT_STRING",        &cASN1BitString,       },  /*  3 */
@@ -1213,7 +1213,7 @@ Init_ossl_asn1()
     rb_define_module_function(mASN1, "traverse", ossl_asn1_traverse, 1);
     rb_define_module_function(mASN1, "decode", ossl_asn1_decode, 1);
     rb_define_module_function(mASN1, "decode_all", ossl_asn1_decode_all, 1);
-    rb_define_module_function(mASN1, "default_tag_class", ossl_asn1_default_tag_class, 1);
+    rb_define_module_function(mASN1, "default_tag_of_class", ossl_asn1_default_tag_class, 1);
     rb_define_module_function(mASN1, "default_tag", ossl_asn1_default_tag_public, 1);
     ary = rb_ary_new();
     rb_define_const(mASN1, "UNIVERSAL_TAG_NAME", ary);
