@@ -1,18 +1,36 @@
 == ruby-openssl
 
-A development repository for the Ruby standard library "ext/openssl". You will find new and experimental features that are not yet available in the official distribution. Features will eventually be merged with main Ruby development once they are stable. Stable features will also be published as a {gem}[https://github.com/emboss/openssl-ext] to make them readily available.  
+A development repository for the Ruby standard library "ext/openssl".
+You will find new and experimental features that are not yet available 
+in the official distribution. Features will eventually be merged with
+main Ruby development once they are stable. Stable features will also
+be published as a {gem}[https://github.com/emboss/openssl-ext] to make
+them readily available.  
 
 == Requirements
 
-To use the library you should use the latest Ruby version and make sure that you are running Ruby with an OpenSSL version >= 1.0.0. You should also ensure that your Ruby installation was built with '--enable-shared'.
+To use the library you should use the latest Ruby version and make sure
+that you are running Ruby with an OpenSSL version >= 1.0.0. You should
+also ensure that your Ruby installation was built with '--enable-shared'.
 
 == Installation
 
-Simply download the sources, unpack them in a directory and run 'ruby extconf.rb'. Then run 'make' and replace the library openssl.so (or .dll or .dynlib) in <RUBY_HOME>/lib/ruby/1.9.1/i686-linux (it's the directory for native libraries, may deviate for your particular installation).
+Simply download the sources, unpack them in a directory and run 
+'ruby extconf.rb'. Then run 'make' and replace the library openssl.so 
+(or .dll or .dynlib) in <RUBY_HOME>/lib/ruby/1.9.1/i686-linux (it's the 
+directory for native libraries, may deviate for your particular installation).
+Next, you need to replace the openssl.rb in <RUBY_HOME>/lib/ruby/1.9.1 by
+the one found under ext/openssl/lib in the sources. The final step is to 
+replace the entire folder <RUBY_HOME>/lib/ruby/1.9.1/openssl by the folder
+ext/openssl/lib/openssl.
 
 == Usage
 
-You can browse the RDoc documentation to find out about the new features. The tests in test/openssl are also a good place to start finding out about the new functionality.
+You can browse the RDoc documentation to find out about the new features.
+The tests in test/openssl are also a good place to start finding out about 
+the new functionality. The installation procedure described above will 
+guarantee that the new features are available by simply adding 'require 
+openssl' as usual. 
 
 == LICENSE:
 
