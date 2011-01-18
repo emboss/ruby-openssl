@@ -1038,7 +1038,7 @@ ossl_ts_verify(int argc, VALUE *argv, VALUE self)
     TS_RESP *resp;
     TS_VERIFY_CTX *ctx;
     TS_REQ *req;
-    STACK_OF(X509) *certs;
+    STACK_OF(X509) *certs = NULL;
     VALUE cert;
     int i;
 
@@ -1162,7 +1162,7 @@ ossl_tsfac_create_ts(VALUE self, VALUE key, VALUE certificate, VALUE request)
     VALUE serial_number, def_policy_id, gen_time, additional_certs;
     VALUE str, cert;
     STACK_OF(X509) *inter_certs;
-    VALUE ret;
+    VALUE ret = Qnil;
     EVP_PKEY *sign_key;
     X509 *tsa_cert;
     TS_REQ *req;
