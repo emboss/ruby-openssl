@@ -71,8 +71,9 @@ module OpenSSL
           end
         else
           type = definition[:type]
-          if type.respond_to? :asn1_declare
-            instance = type.new(definition[:options])
+          options = definition[:options]
+          if type.respond_to? :asn1_declare && !options[:optional]
+            instance = type.new(options)
             instance_variable_set("@" + definition[:name].to_s, instance)
           end
         end
