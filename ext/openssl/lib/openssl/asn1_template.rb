@@ -26,6 +26,8 @@ module OpenSSL
     
     #TODO: test for default_tag and default_tag_class
     #TODO: Readme: copy files under lib, too.
+    #TODO: sequence_of, set_of, choice
+    #TODO: asn1_any
     
     module Template
 
@@ -34,7 +36,11 @@ module OpenSSL
                         tagging: nil, 
                         infinite_length: false,
                         tag_class: nil }
-                        
+      
+      def self.included(base)
+        base.extend ClassMethods
+      end
+      
       def initialize(options={})
         options = DEF_OPTS_ASN1.merge(options)
         @_options = options
@@ -58,6 +64,7 @@ module OpenSSL
       
       def initialize_recursive(definition)
         inner_def = definition[:inner_def]
+        
         if inner_def
           inner_def.each do |deff|
             initialize_recursive(deff)
@@ -85,9 +92,10 @@ module OpenSSL
         else
           name = definition[:name]
           value = instance_variable_get("@" + name.to_s)
+          
           unless value
             unless options[:optional]
-              raise OpenSSL::ASN1::ASN1Error.new("Manadatory value #{name} not set.")
+              raise OpenSSL::ASN1::ASN1Error.new("Mandatory value #{name} not set.")
             else
               return nil
             end
@@ -108,12 +116,16 @@ module OpenSSL
       
       def to_asn1_obj_cons(type, inner_def, inf_length, tag, tagging, tag_class)
         value = Array.new
+        
         inner_def.each do |element|
           obj = to_asn1_obj_recursive(element)
           value << obj if obj
         end
+        
         return nil if value.empty?
+        
         value << OpenSSL::ASN1::EndOfContent.new if inf_length
+        
         constructed = unless tag
                         type.new(value)
                       else
@@ -127,6 +139,7 @@ module OpenSSL
         if inf_length
           return to_asn1_obj_prim_inf(value, type, name, tag, tagging, tag_class)
         end
+        
         unless tag
           type.new(value)
         else
@@ -137,6 +150,7 @@ module OpenSSL
       def to_asn1_obj_prim_inf(value, type, name, tag, tagging, tag_class)
         tag_class = tag_class || :UNIVERSAL
         tag = tag || OpenSSL::ASN1.default_tag_of_class(type)
+        
         case value
         when Array
           cons_value = Array.new
@@ -147,16 +161,13 @@ module OpenSSL
         else
           cons_value = [ type.new(value), OpenSSL::ASN1::EndOfContent.new ]  
         end
+        
         cons = OpenSSL::ASN1::Constructive.new(cons_value, 
                                                tag,
                                                tagging,
                                                tag_class)
         cons.infinite_length = true
         cons
-      end
-
-      def self.included(base)
-        base.extend ClassMethods
       end
 
       module ClassMethods
@@ -182,6 +193,7 @@ module OpenSSL
               if !block_given?
                 raise ArgumentError("#{meth_name} must be given a block.")
               end
+              
               eigenclass.instance_eval do
                 define_method "#{meth_name}" do |opts={}, &proc|
                   tmp_def = cur_def
@@ -195,13 +207,14 @@ module OpenSSL
             end
             
             define_method :asn1_template do |name, type, opts={}|
-                attr_accessor name
-                opts = DEF_OPTS_ASN1.merge(opts)
-                cur_def[:inner_def] << { type: type, name: name, options: opts, inner_def: nil }
+              attr_accessor name
+              opts = DEF_OPTS_ASN1.merge(opts)
+              new_def = { type: type, name: name, options: opts, inner_def: nil }
+              cur_def[:inner_def] << new_def
             end
               
           end
-                              
+          
           declare_prim("asn1_boolean", OpenSSL::ASN1::Boolean)
           declare_prim("asn1_integer", OpenSSL::ASN1::Integer)
           declare_prim("asn1_bit_string", OpenSSL::ASN1::BitString)
@@ -225,7 +238,7 @@ module OpenSSL
           
           declare_cons("asn1_sequence", OpenSSL::ASN1::Sequence)
           declare_cons("asn1_set", OpenSSL::ASN1::Set)
-          
+                              
           yield
         end
 
@@ -237,6 +250,7 @@ module OpenSSL
         
         def _determine_tag_class(tag, tag_class)
           return tag_class if tag_class
+          
           if tag
             :CONTEXT_SPECIFIC
           else
@@ -254,6 +268,7 @@ module OpenSSL
               "Mandatory parameter not set. Type: #{definition[:type]} " +
               " Name: #{definition[:name]}")
           end
+          
           return nil unless asn1
                     
           obj = self.new(options)
@@ -269,41 +284,62 @@ module OpenSSL
           inf_length = options[:infinite_length]
           type = definition[:type]
           optional = options[:optional]
+          tagging = options[:tagging]
           
           check_asn1(asn1, type, options)
           
           unless inner_def
             name = definition[:name]
+            
             if type.respond_to? :asn1_declare
               instance = type.parse(asn1, options)
               obj.instance_variable_set("@" + name.to_s, instance)
             else
+              asn1 = unpack_tagged(asn1, type, tagging)
               unless inf_length
-                obj.instance_variable_set("@" + name.to_s, asn1.value)
+                parse_prim(obj, name, asn1)
               else
-                parse_prim_inf(obj, name, asn1, type)
+                parse_prim_inf(obj, name, type, asn1)
               end
             end
           else
+            asn1 = unpack_tagged(asn1, type, tagging)
             parse_cons(obj, asn1, inner_def, inf_length)
           end
+        end
+        
+        def parse_prim(obj, name, asn1)
+          obj.instance_variable_set("@" + name.to_s, asn1.value)
+        end
+        
+        def parse_prim_inf(obj, name, type, asn1)
+          tag = OpenSSL::ASN1.default_tag_of_class(type)
+          value = Array.new
+          
+          asn1.each do |part|
+            unless part.tag == OpenSSL::ASN1::END_OF_CONTENT
+              unless part.tag == tag
+                raise OpenSSL::ASN1::ASN1Error.new(
+                  "Tag mismatch for infinite length primitive " +
+                  "value. Expected: #{tag} Got: #{part.tag}")
+              end
+              value << part.value 
+            end
+          end
+          
+          obj.instance_variable_set("@" + name.to_s, value)
         end
         
         def parse_cons(obj, asn1, inner_def, inf_length)
           i = 0
           seq = asn1.value
-          max_size = inner_def.size
-          if inf_length
-            max_size += 1
-          end
-          min_size = min_size(inner_def)
-          size = seq.size
-          if size > max_size || size < min_size
-            raise OpenSSL::ASN1::ASN1Error.new(
-              "Expected #{min_size}..#{max_size} values. Got #{size}")
-          end
+          actual_size = seq.size
+          
+          check_size_cons(actual_size, inner_def, inf_length)
+          
           inner_def.each do |definition|
             inner_asn1 = seq[i]
+            
             if match(inner_asn1, definition[:type], definition[:options][:tag])
               parse_recursive(obj, inner_asn1, definition)
               i += 1
@@ -315,30 +351,87 @@ module OpenSSL
               end
             end
           end
+          
           if inf_length && 
              seq[i].tag != OpenSSL::ASN1::END_OF_CONTENT
             raise OpenSSL::ASN1::ASN1Error.new(
               "Expected END_OF_CONTENT. Got #{seq[i].tag}")
           end
+          
+          num_parsed = inf_length ? i + 1 : i
+          
+          unless actual_size == num_parsed
+            raise OpenSSL::ASN1::ASN1Error.new(
+              "Structural mismatch of constructed value. " +
+              "Parsed: #{num_parsed}  of #{actual_size} values")
+          end
         end
         
-        def parse_prim_inf(obj, name, asn1, type)
-          tag = OpenSSL::ASN1.default_tag_of_class(type)
-          value = Array.new
-          asn1.each do |part|
-            unless part.tag == OpenSSL::ASN1::END_OF_CONTENT
-              if part.tag != tag
-                raise OpenSSL::ASN1::ASN1Error.new(
-                  "Tag mismatch for infinite length primitive " +
-                  "value. Expected: #{tag} Got: #{part.tag}")
-              end
-              value << part.value 
+        def check_size_cons(size, inner_def, inf_length)
+          max_size = inner_def.size
+          max_size += 1 if inf_length
+          min_size = min_size(inner_def)
+          
+          if size > max_size || size < min_size
+            raise OpenSSL::ASN1::ASN1Error.new(
+              "Expected #{min_size}..#{max_size} values. Got #{size}")
+          end
+        end
+        
+        def unpack_tagged(asn1, type, tagging)
+          return asn1 unless tagging
+          case tagging
+          when :EXPLICIT
+            unpack_explicit(asn1)
+          when :IMPLICIT
+            unpack_implicit(asn1, type)
+          else
+            raise ArgumentError.new("Unrecognized tagging: #{tagging}")
+          end
+        end
+        
+        def unpack_explicit(asn1)
+          unpacked = asn1.value
+          unless unpacked.size == 1
+            raise OpenSSL::ASN1::ASN1Error.new(
+              "Explicitly tagged value with multiple inner values")
+          end
+          asn1.value.first
+        end
+        
+        def unpack_implicit(asn1, type)
+          unless type.respond_to? :asn1_declare
+            tmp_type = type
+          else
+            tmp_type = type._definition[:type]
+          end
+          real_tag = OpenSSL::ASN1.default_tag_of_class(tmp_type)
+          #implicitly tagged constructed values already contain
+          #an array value; no need to en- and decode them as for 
+          #primitive values
+          asn1.tag = real_tag
+          asn1.tag_class = :UNIVERSAL
+          unless real_tag == OpenSSL::ASN1::SEQUENCE ||
+                 real_tag == OpenSSL::ASN1::SET
+            OpenSSL::ASN1.decode(asn1.to_der)
+          else
+            asn1
+          end
+        end
+        
+        def min_size(inner_def)
+          min_size = 0
+          inner_def.each do |definition|
+            unless definition[:options][:optional]
+              min_size += 1
             end
           end
-          obj.instance_variable_set("@" + name.to_s, value)
+          min_size
         end
         
         def match(asn1, type, tag)
+          return false unless asn1
+          
           unless tag
             unless type.respond_to? :asn1_declare
               tmp_type = type
@@ -357,14 +450,12 @@ module OpenSSL
         
         def check_asn1(asn1, type, options)
           tag = options[:tag]
-          tagging = options[:tagging]
           tag_class = _determine_tag_class(tag, options[:tag_class])
           
           if tag
-            unless asn1.tag == tag && asn1.tagging == tagging
+            unless asn1.tag == tag
               raise OpenSSL::ASN1::ASN1Error.new(
-                "Tagging mismatch. Expected: #{tag} #{tagging} " +
-                "Got: #{asn1.tag} #{asn1.tagging}")
+                "Tagging mismatch. Expected: #{tag} Got: #{asn1.tag}")
             end
           else
             unless type.respond_to? :asn1_declare
@@ -375,21 +466,12 @@ module OpenSSL
               end
             end
           end
+          
           if asn1.tag_class != tag_class
             raise OpenSSL::ASN1::ASN1Error.new(
               "Tag class mismatch. Expected: #{tag_class} " +
               "Got: #{asn1.tag_class}")
           end
-        end
-        
-        def min_size(inner_def)
-          min_size = 0
-          inner_def.each do |definition|
-            unless definition[:options][:optional]
-              min_size += 1
-            end
-          end
-          min_size
         end
         
       end
@@ -402,7 +484,8 @@ class Validity
   
   asn1_declare OpenSSL::ASN1::Sequence do
     asn1_utc_time :begin
-    asn1_utc_time :end
+    asn1_utc_time :end, {optional: true, tag: 0, tagging: :IMPLICIT}
+    #asn1_utc_time :end, {optional: true, tag: 0, tagging: :EXPLICIT}
   end
 end
 
@@ -414,7 +497,7 @@ class Certificate
     asn1_integer :version, { optional: true }
     asn1_boolean :qualified, { optional: true }
     asn1_printable_string :issuer
-    asn1_template :validity, Validity
+    asn1_template :validity, Validity, { tag: 1, tagging: :IMPLICIT }
   end
 end
 
@@ -427,12 +510,15 @@ c.validity.begin = Time.new
 c.validity.end = Time.new
 
 asn1 = c.to_asn1
-mod_asn1 = Array.new
-asn1.each do |e|
-  mod_asn1 << e unless e.value == "Issuer"
-end
+#asn1.value.pop
+#mod_asn1 = Array.new
+#asn1.each do |e|
+#  mod_asn1 << e unless e.value == "Martin"
+#end
 der = OpenSSL::ASN1::Sequence.new(asn1).to_der
 pp der
-c2 = Certificate.parse(OpenSSL::ASN1.decode(der))
+asn12 = OpenSSL::ASN1.decode(der)
+pp asn12
+c2 = Certificate.parse(asn12)
 pp c2
 puts c2.to_der == der
