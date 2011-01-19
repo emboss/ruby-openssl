@@ -30,24 +30,22 @@ module OpenSSL
     #TODO: asn1_any
     #TODO: ignore -> parsed but not set as instance variable
     
+    #available options { optional: false, tag: nil, 
+        #                tagging: nil, infinite_length: false,
+        #                tag_class: nil, default: nil,
+        #                ignore: false }
+        
     module Template
-
-      DEF_OPTS_ASN1 = { optional: false, 
-                        tag: nil, 
-                        tagging: nil, 
-                        infinite_length: false,
-                        tag_class: nil }
       
       def self.included(base)
         base.extend ClassMethods
       end
       
       def initialize(options={})
-        options = DEF_OPTS_ASN1.merge(options)
         @_options = options
         definition = self.class._definition
         definition[:options] = options
-        initialize_recursive(definition)
+        init_mandatory_templates(definition)
       end
       
       def to_der
@@ -63,23 +61,29 @@ module OpenSSL
       
       private
       
-      def initialize_recursive(definition)
+      def init_mandatory_templates(definition)
         inner_def = definition[:inner_def]
         
         if inner_def
           inner_def.each do |deff|
-            initialize_recursive(deff)
+            init_mandatory_templates(deff)
           end
         else
           type = definition[:type]
           options = definition[:options]
-          if type.respond_to? :asn1_declare && !options[:optional]
+          if type.include?(Template) && !options[:optional]
             instance = type.new(options)
             instance_variable_set("@" + definition[:name].to_s, instance)
           end
         end
       end
-
+      
+      class Encoder
+        class << self
+          
+        end
+      end
+      
       def to_asn1_obj_recursive(definition)
         options = definition[:options]
         type = definition[:type] 
@@ -103,7 +107,7 @@ module OpenSSL
             end
           end
           
-          if value.respond_to? :to_asn1
+          if type.include? Template
             to_asn1_obj_templ(value, name, options)
           else
             to_asn1_obj_prim(value, type, name, inf_length, tag, tagging, tag_class)
@@ -180,7 +184,6 @@ module OpenSSL
           cur_def = @_definition
                     
           eigenclass = class << self; self; end
-          
           eigenclass.instance_eval do
             
             define_method :declare_prim do |meth_name, type|
@@ -199,7 +202,6 @@ module OpenSSL
               eigenclass.instance_eval do
                 define_method "#{meth_name}" do |opts={}, &proc|
                   tmp_def = cur_def
-                  opts = DEF_OPTS_ASN1.merge(opts)
                   cur_def = { type: type, options: opts, inner_def: Array.new }
                   proc.call
                   tmp_def[:inner_def] << cur_def
@@ -210,7 +212,6 @@ module OpenSSL
             
             define_method :asn1_template do |name, type, opts={}|
               attr_accessor name
-              opts = DEF_OPTS_ASN1.merge(opts)
               new_def = { type: type, name: name, options: opts, inner_def: nil }
               cur_def[:inner_def] << new_def
             end
@@ -246,7 +247,6 @@ module OpenSSL
 
         def _declare_primitive(type, name, opts)
           attr_accessor name
-          opts = DEF_OPTS_ASN1.merge(opts)
           { type: type, name: name, options: opts, inner_def: nil }
         end
         
@@ -261,7 +261,6 @@ module OpenSSL
         end
         
         def parse(asn1, options={})
-          options = DEF_OPTS_ASN1.merge(options)
           definition = @_definition
           definition[:options] = options
           
@@ -293,7 +292,7 @@ module OpenSSL
           unless inner_def
             name = definition[:name]
             
-            if type.respond_to? :asn1_declare
+            if type.include? Template
               instance = type.parse(asn1, options)
               obj.instance_variable_set("@" + name.to_s, instance)
             else
@@ -402,7 +401,7 @@ module OpenSSL
         end
         
         def unpack_implicit(asn1, type)
-          unless type.respond_to? :asn1_declare
+          unless type.include? Template
             tmp_type = type
           else
             tmp_type = type._definition[:type]
@@ -435,7 +434,7 @@ module OpenSSL
           return false unless asn1
           
           unless tag
-            unless type.respond_to? :asn1_declare
+            unless type.include? Template
               tmp_type = type
             else
               tmp_type = type._definition[:type]
@@ -460,7 +459,7 @@ module OpenSSL
                 "Tagging mismatch. Expected: #{tag} Got: #{asn1.tag}")
             end
           else
-            unless type.respond_to? :asn1_declare
+            unless type.include? Template
               dtag = OpenSSL::ASN1.default_tag_of_class(type)
               if asn1.tag != dtag
                 raise OpenSSL::ASN1::ASN1Error.new(
