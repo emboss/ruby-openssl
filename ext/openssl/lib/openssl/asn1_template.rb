@@ -28,6 +28,7 @@ module OpenSSL
     #TODO: Readme: copy files under lib, too.
     #TODO: sequence_of, set_of, choice
     #TODO: asn1_any
+    #TODO: ignore -> parsed but not set as instance variable
     
     module Template
 
@@ -239,7 +240,7 @@ module OpenSSL
           
           declare_cons("asn1_sequence", OpenSSL::ASN1::Sequence)
           declare_cons("asn1_set", OpenSSL::ASN1::Set)
-                              
+          
           yield
         end
 
