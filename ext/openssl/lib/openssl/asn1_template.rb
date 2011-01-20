@@ -28,12 +28,11 @@ module OpenSSL
     #TODO: Readme: copy files under lib, too.
     #TODO: sequence_of, set_of, choice
     #TODO: asn1_any
-    #TODO: ignore -> parsed but not set as instance variable
     
     #available options { optional: false, tag: nil, 
         #                tagging: nil, infinite_length: false,
         #                tag_class: nil, default: nil,
-        #                ignore: false }
+        #                parse_ignore: false }
         
     module Template
       
@@ -146,11 +145,11 @@ module OpenSSL
             value = obj.instance_variable_get("@" + name.to_s)
             
             unless value
-              unless options[:optional]
+              default = options[:default]
+              unless options[:optional] || default
                 raise OpenSSL::ASN1::ASN1Error.new("Mandatory value #{name} not set.")
-              else
-                return nil
               end
+              return type_new(default, type, tag, tagging, tag_class)
             end
             
             if type.include? Template
@@ -278,18 +277,23 @@ module OpenSSL
           def parse_template_or_prim(obj, name, type, asn1, options)
             if type.include? Template
               instance = type.parse(asn1, options)
-              obj.instance_variable_set("@" + name.to_s, instance)
+              unless options[:parse_ignore]
+                obj.instance_variable_set("@" + name.to_s, instance)
+              end
             else
+              ignore = options[:parse_ignore]
               unless options[:infinite_length]
-                parse_prim(obj, name, asn1)
+                parse_prim(obj, name, asn1, ignore)
               else
-                parse_prim_inf(obj, name, type, asn1)
+                parse_prim_inf(obj, name, type, asn1, ignore)
               end
             end
           end
           
-          def parse_prim(obj, name, asn1)
-            obj.instance_variable_set("@" + name.to_s, asn1.value)
+          def parse_prim(obj, name, asn1, ignore)
+            unless ignore
+              obj.instance_variable_set("@" + name.to_s, asn1.value)
+            end
           end
           
           def parse_prim_inf(obj, name, type, asn1)
@@ -307,7 +311,9 @@ module OpenSSL
               end
             end
             
-            obj.instance_variable_set("@" + name.to_s, value)
+            unless ignore
+              obj.instance_variable_set("@" + name.to_s, value)
+            end
           end
           
           def parse_cons(obj, asn1, inner_def, inf_length)
@@ -325,6 +331,8 @@ module OpenSSL
                 i += 1
               else
                 unless definition[:options][:optional]
+                  default = options[:default]
+                  return default if default
                   raise OpenSSL::ASN1::ASN1Error.new(
                     "Mandatory parameter not set. Type: #{definition[:type]} " +
                     " Name: #{definition[:name]}")
@@ -473,6 +481,22 @@ module OpenSSL
               new_def = { type: type, name: name, options: opts, inner_def: nil }
               cur_def[:inner_def] << new_def
             end
+            
+            define_method :asn1_any do |name, opts={}|
+              attr_accessor name
+            end
+            
+            define_method :asn1_sequence_of do |type, name, opts={}|
+              attr_accessor name
+            end
+            
+            define_method :asn1_set_of do |type, name, opts={}|
+              attr_accessor name
+            end
+            
+            define_method :asn1_choice do |name, opts={}, &proc|
+              attr_accessor name
+            end
               
           end
           
@@ -523,7 +547,7 @@ class Certificate
   
   asn1_declare OpenSSL::ASN1::Sequence do
     asn1_printable_string :subject
-    asn1_integer :version, { optional: true }
+    asn1_integer :version, { default: 99 }
     asn1_boolean :qualified, { optional: true }
     asn1_printable_string :issuer
     asn1_template :validity, Validity, { tag: 1, tagging: :IMPLICIT }
@@ -533,7 +557,7 @@ end
 
 c = Certificate.new
 c.subject = "Martin"
-c.version = 5
+#c.version = 5
 c.issuer = "Issuer"
 c.validity.begin = Time.new
 c.validity.end = Time.new
