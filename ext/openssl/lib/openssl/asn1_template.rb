@@ -87,7 +87,7 @@ module OpenSSL
         else
           type = definition[:type]
           options = definition[:options]
-          if type.include?(Template) && !options[:optional]
+          if type && type.include?(Template) && !options[:optional]
             instance = type.new(options)
             instance_variable_set("@" + definition[:name].to_s, instance)
           end
@@ -260,6 +260,28 @@ module OpenSSL
           end
         end
       end
+
+      class AnyEncoder
+        class << self
+          include TypeEncoder, TemplateUtil
+
+          def to_asn1(obj, definition)
+            options = definition[:options]
+            tag = options[:tag]
+            tagging = options[:tagging]
+            tag_class = determine_tag_class(tag, options[:tag_class])
+            name = definition[:name]
+            value = obj.instance_variable_get("@" + name.to_s)
+            value = value_raise_or_default(value, name, options)
+            value.tag = tag || value.tag
+            if value.respond_to?(:tagging)
+              value.tagging = tagging || value.tagging
+            end
+            value.tag_class = tag_class
+            value
+          end
+        end
+      end
       
       module Encoder
         class << self
@@ -282,7 +304,7 @@ module OpenSSL
         end
             
         def unpack_tagged(asn1, type, tagging)
-          return asn1 unless (tagging && asn1) 
+          return asn1 unless tagging && type
           case tagging
           when :EXPLICIT
            unpack_explicit(asn1)
@@ -325,44 +347,33 @@ module OpenSSL
           min_size
         end
           
-        def match(asn1, type, tag)
-          return false unless asn1
-           
-          real_tag = tag_or_default(tag, type)
-            
-          if asn1.tag == real_tag
-            true
-          else
-            false
-          end
-        end
-          
-        def check_asn1(asn1, type, options)
-          check_mandatory(asn1, name, options[:optional])
-          
+        def match(asn1, type, name, options)
           tag = options[:tag]
           real_tag = tag_or_default(tag, type)
-          tag_class = determine_tag_class(tag, options[:tag_class])
-           
-          unless asn1.tag == real_tag
-            raise OpenSSL::ASN1::ASN1Error.new(
-              "Tagging mismatch. Expected: #{tag} Got: #{asn1.tag}")
-          end
-           
-          unless asn1.tag_class == tag_class
-            raise OpenSSL::ASN1::ASN1Error.new(
-              "Tag class mismatch. Expected: #{tag_class} " +
-              "Got: #{asn1.tag_class}")
+          if asn1.tag == real_tag
+            tag_class = determine_tag_class(tag, options[:tag_class])
+            unless asn1.tag_class == tag_class
+              raise OpenSSL::ASN1::ASN1Error.new(
+                "Tag class mismatch. Expected: #{tag_class} " +
+                "Got: #{asn1.tag_class}")
+            end
+            asn1 = unpack_tagged(asn1, type, options[:tagging])
+            return asn1.value, true
+          else
+            default = options[:default]
+            if default
+              return default, false
+            else
+              unless options[:optional]
+                raise OpenSSL::ASN1::ASN1Error.new(
+                  "Mandatory value #{name} could not be parsed. "+
+                  "Expected tag: #{real_tag} Got: #{asn1.tag}")
+              end
+              return nil, false
+            end
           end
         end
-        
-        def check_mandatory(asn1, name, optional)
-          unless asn1 || optional
-            raise OpenSSL::ASN1::ASN1Error.new(
-                "Mandatory value #{name} not set.")
-          end
-        end
-        
+      
       end
       
       class PrimitiveParser
@@ -379,12 +390,13 @@ module OpenSSL
               return PrimitiveParserInfinite.parse(obj, asn1, definition)
             end
             
-            check_asn1(asn1, type, options)
-            asn1 = unpack_tagged(asn1, type, options[:tagging])
-            value = asn1.value
+            value, matched = match(asn1, type, name, options)
+            return false unless value || matched
+            
             unless ignore
-              obj.instance_variable_set("@" + name.to_s, asn1.value)
+              obj.instance_variable_set("@" + name.to_s, value)
             end
+            matched
           end
         end
       end
@@ -399,9 +411,8 @@ module OpenSSL
             options = definition[:options]
             ignore = options[:parse_ignore]
             
-            check_asn1(asn1, type, options)
-            asn1 = unpack_tagged(asn1, type, options[:tagging])
-            ary = asn1.value
+            value, matched = match(asn1, type, name, options)
+            return false unless value || matched
             
             unless ary.respond_to?(:each)
               raise OpenSSL::ASN1::ASN1Error.new(
@@ -426,6 +437,7 @@ module OpenSSL
             unless ignore
               obj.instance_variable_set("@" + name.to_s, value)
             end
+            matched
           end
         end
       end
@@ -442,7 +454,9 @@ module OpenSSL
             tagging = options[:tagging]
             inf_length = options[:infinite_length]
             
-            check_asn1(asn1, type, options)
+            value, matched = match(asn1, type, nil, options)
+            return false unless value # || matched not needed, value != false
+            
             asn1 = unpack_tagged(asn1, type, tagging)
             i = 0
             seq = asn1.value
@@ -452,18 +466,8 @@ module OpenSSL
             
             inner_def.each do |deff|
               inner_asn1 = seq[i]
-              
-              if match(inner_asn1, deff[:type], deff[:options][:tag])
-                Parser.parse_recursive(obj, inner_asn1, deff)
+              if Parser.parse_recursive(obj, inner_asn1, deff)
                 i += 1
-              else
-                unless deff[:options][:optional]
-                  default = options[:default]
-                  return default if default
-                  raise OpenSSL::ASN1::ASN1Error.new(
-                    "Mandatory parameter not set. Type: #{deff[:type]} " +
-                    " Name: #{deff[:name]}")
-                end
               end
             end
               
@@ -497,6 +501,33 @@ module OpenSSL
             unless options[:parse_ignore]
               obj.instance_variable_set("@" + name.to_s, instance)
             end
+            true
+          end
+        end
+      end
+
+      class AnyParser
+        class << self
+          include TypeParser, TemplateUtil
+
+          def parse(obj, asn1, definition)
+            name = definition[:name]
+            options = definition[:options]
+            
+            if options[:optional]
+              if (options[:tag])
+                value, matched = match(asn1, nil, name, options)
+                return false unless value
+              else
+                OpenSSL::ASN1::ASN1Error.new("
+                  Cannot unambiguously assign ASN.1 Any")
+              end
+            end
+            
+            unless options[:parse_ignore]
+              obj.instance_variable_set("@" + name.to_s, asn1)
+            end
+            true
           end
         end
       end
@@ -558,16 +589,21 @@ module OpenSSL
             
             define_method :asn1_template do |name, type, opts={}|
               attr_accessor name
-              new_def = { type: type, 
-                          name: name, 
-                          options: opts, 
-                          encoder: TemplateEncoder,
-                          parser: TemplateParser }
-              cur_def[:inner_def] << new_def
+              deff = { type: type, 
+                       name: name, 
+                       options: opts, 
+                       encoder: TemplateEncoder,
+                       parser: TemplateParser }
+              cur_def[:inner_def] << deff
             end
             
             define_method :asn1_any do |name, opts={}|
               attr_accessor name
+              deff = { name: name, 
+                       options: opts, 
+                       encoder: AnyEncoder,
+                       parser: AnyParser }
+              cur_def[:inner_def] << deff
             end
             
             define_method :asn1_sequence_of do |type, name, opts={}|
@@ -576,7 +612,6 @@ module OpenSSL
             
             define_method :asn1_set_of do |type, name, opts={}|
               attr_accessor name
-              puts "test"
             end
             
             define_method :asn1_choice do |name, opts={}, &proc|
@@ -634,6 +669,7 @@ class Certificate
     asn1_printable_string :subject
     asn1_integer :version, { default: 99 }
     asn1_boolean :qualified, { optional: true }
+    asn1_any :whatever, { optional: true, tag: 2, tagging: :IMPLICIT }
     asn1_printable_string :issuer
     asn1_template :validity, Validity, { tag: 1, tagging: :IMPLICIT }
   end
@@ -642,7 +678,8 @@ end
 
 c = Certificate.new
 c.subject = "Martin"
-#c.version = 5
+c.version = 5
+c.whatever = OpenSSL::ASN1::BitString.new("\x01")
 c.issuer = "Issuer"
 c.validity.begin = Time.new
 c.validity.end = Time.new
