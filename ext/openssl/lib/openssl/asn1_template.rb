@@ -13,8 +13,6 @@
 = Version
   $Id: asn1_template.rb $
 =end
-require "openssl"
-require "pp"
 
 module OpenSSL
   module ASN1
@@ -153,7 +151,7 @@ module OpenSSL
           default = options[:default]
                     
           unless value
-            unless optional || default
+            unless optional || default != nil
               raise OpenSSL::ASN1::ASN1Error.new(
                 "Mandatory value #{name} not set.")
             end
@@ -182,6 +180,7 @@ module OpenSSL
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
+            return nil unless value || value != nil #need this for OpenSSL::BNs
             type_new(value, type, tag, tagging, tag_class)
           end
         end
@@ -200,6 +199,7 @@ module OpenSSL
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
+            return nil unless value || value != nil
             
             case value
             when Array
@@ -248,7 +248,7 @@ module OpenSSL
             value << OpenSSL::ASN1::EndOfContent.new if inf_length
               
             constructed = type_new(value, type, tag, tagging, tag_class)
-            constructed.infinite_length = inf_length
+            constructed.infinite_length = inf_length if inf_length
             constructed
           end
         end
@@ -263,6 +263,7 @@ module OpenSSL
             name = definition[:name]
             value = obj.instance_variable_get("@" + name.to_s)
             value_raise_or_default(value, name, options)
+            return nil unless value != nil
             value.instance_variable_set(:@_options, options)
             value.to_asn1
           end
@@ -281,6 +282,7 @@ module OpenSSL
             name = definition[:name]
             value = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(value, name, options)
+            return nil unless value != nil
             value.tag = tag || value.tag
             if value.respond_to?(:tagging)
               value.tagging = tagging || value.tagging
@@ -323,6 +325,7 @@ module OpenSSL
             inf_length = options[:infinite_length]
             value = obj.instance_variable_get("@" + name.to_s)
             value_raise_or_default(value, name, options)
+            return nil unless value != nil
             seq_value = Array.new
             value.each do |element|
               #inner values are either template types or primitives
@@ -346,6 +349,7 @@ module OpenSSL
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
+            return nil unless value != nil
             unless value.is_a? ChoiceValue
               raise ArgumentError.new("ChoiceValue expected for #{name}")
             end
@@ -564,7 +568,9 @@ module OpenSSL
             
             inner_def.each do |deff|
               inner_asn1 = seq[i]
-              if Parser.parse_recursive(obj, inner_asn1, deff)
+              if !inner_asn1
+                handle_missing(obj, deff)
+              elsif Parser.parse_recursive(obj, inner_asn1, deff)
                 i += 1
               end
             end
@@ -583,6 +589,21 @@ module OpenSSL
             end
             matched
           end
+          
+          private 
+          
+          def handle_missing(obj, deff)
+            options = deff[:options]
+            default = options[:default]
+            unless options[:optional] || default != nil
+              raise OpenSSL::ASN1::ASN1Error.new(
+                "Mandatory value #{deff[:name]} is missing.")
+            end
+            if default && !options[:parse_ignore]
+                obj.instance_variable_set("@" + deff[:name].to_s, default)
+            end
+          end
+          
         end
       end
       
@@ -653,11 +674,10 @@ module OpenSSL
         class << self
           include TypeParser, TemplateUtil
           
-          Tmp = Struct.new(:object)
-          
           def parse(obj, asn1, definition, type)
             options = definition[:options]
-            is_template = definition[:inner_type].include? Template
+            inner_type = definition[:inner_type]
+            is_template = inner_type.include? Template
             name = definition[:name]
             optional = options[:optional]
             tagging = options[:tagging]
@@ -670,19 +690,19 @@ module OpenSSL
             
             ret = Array.new
             if is_template
-              tmp = Tmp.new
-              deff = { type: inner_type, name: :object }
+              tmp_class = Class.new do
+                attr_accessor :object
+              end
+              tmp = tmp_class.new
+              deff = { type: inner_type, name: :object, options: {} }
             end
             
             seq.each do |val|
               next if val.tag == OpenSSL::ASN1::END_OF_CONTENT
               
               if is_template
-                if inner_type.parse(tmp, val, deff)
-                  ret << tmp.object
-                else
-                  raise RuntimeError.new("Did not match template type #{name}.")
-                end
+                TemplateParser.parse(tmp, val, deff)
+                ret << tmp.object
               else
                 ret << val.value
               end
@@ -915,56 +935,3 @@ module OpenSSL
     end
   end
 end
-
-class Validity
-  include OpenSSL::ASN1::Template
-  
-  asn1_declare OpenSSL::ASN1::Sequence do
-    asn1_utc_time :begin
-    asn1_utc_time :end, {optional: true, tag: 0, tagging: :IMPLICIT}
-    asn1_choice :choice do
-      asn1_printable_string
-      asn1_ia5_string
-    end
-  end
-end
-
-class Certificate
-  include OpenSSL::ASN1::Template
-  
-  asn1_declare OpenSSL::ASN1::Sequence do
-    asn1_printable_string :subject
-    asn1_integer :version, { default: 99 }
-    asn1_boolean :qualified, { optional: true }
-    asn1_any :whatever, { optional: true, tag: 2, tagging: :IMPLICIT }
-    asn1_printable_string :issuer
-    asn1_template Validity, :validity, { tag: 1, tagging: :IMPLICIT }
-    asn1_sequence_of OpenSSL::ASN1::Integer, :seq_of
-  end
-end
-
-
-c = Certificate.new
-c.subject = "Martin"
-c.version = 5
-c.whatever = OpenSSL::ASN1::BitString.new("\x01")
-c.issuer = "Issuer"
-c.seq_of = [1, 2, 3]
-c.validity.begin = Time.new
-c.validity.end = Time.new
-c.validity.choice = OpenSSL::ASN1::Template::ChoiceValue.new(
-                    OpenSSL::ASN1::IA5String, "Teste Choice")
-
-asn1 = c.to_asn1
-#asn1.value.pop
-#mod_asn1 = Array.new
-#asn1.each do |e|
-#  mod_asn1 << e unless e.value == "Martin"
-#end
-der = asn1.to_der
-pp der
-asn12 = OpenSSL::ASN1.decode(der)
-pp asn12
-c2 = Certificate.parse(asn12)
-pp c2
-puts c2.to_der == der
