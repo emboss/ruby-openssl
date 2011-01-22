@@ -1,2 +1,5 @@
+=== 0.2.0 / 2011-01-22 [emboss]
+added OpenSSL::ASN1::Template
+
 === 0.1.0 / 2011-01-10 [emboss]
 Birth

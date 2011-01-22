@@ -22,8 +22,7 @@ module OpenSSL
     #class instance and by providing a +parse+ class method in the class that
     #includes this module.
     
-    #TODO: test for default_tag and default_tag_class
-    #TODO: Readme: copy files under lib, too.
+    #TODO: tests for default_tag and default_tag_class in ossl_asn1.c
     #TODO: sequence_of_choice, set_of_choice
     #TODO: convert infinite length primitives to a single primitive if not expected from definition
     
@@ -49,17 +48,27 @@ module OpenSSL
             
           return nil unless asn1
           
-          obj = base.new(options)
+          unless asn1.respond_to?(:to_der)
+            asn1 = OpenSSL::ASN1.decode(asn1)
+            obj = base.new
+          else
+            obj = base.new(options)  
+          end
+          
           Parser.parse_recursive(obj, asn1, definition)
           obj
         end
       end
       
       def initialize(options={})
-        @_options = options
-        definition = self.class.instance_variable_get(:@_definition)
-        definition[:options] = options
-        init_mandatory_templates(definition)
+        unless options.is_a?(Hash)
+          parse_raw(options)
+        else
+          @_options = options
+          definition = self.class.instance_variable_get(:@_definition)
+          definition[:options] = options
+          init_mandatory_templates(definition)
+        end
       end
       
       def to_der
@@ -73,6 +82,12 @@ module OpenSSL
       end
       
       private
+      
+      def parse_raw(raw)
+        asn1 = OpenSSL::ASN1.decode(raw)
+        definition = self.class.instance_variable_get(:@_definition)
+        Parser.parse_recursive(self, asn1, definition)
+      end
       
       def init_mandatory_templates(definition)
         inner_def = definition[:inner_def]
@@ -163,6 +178,7 @@ module OpenSSL
     
       end
       
+      
       class PrimitiveEncoder
         class << self
           include TypeEncoder, TemplateUtil
@@ -180,7 +196,7 @@ module OpenSSL
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
-            return nil unless value || value != nil #need this for OpenSSL::BNs
+            return nil unless value || value != nil #need this for OpenSSL::BNs, conflict with !=
             type_new(value, type, tag, tagging, tag_class)
           end
         end
@@ -386,6 +402,16 @@ module OpenSSL
         end
       end
       
+      #Every encoder needs to construct a subtype of 
+      #OpenSSL::ASN1::ASN1Data from the definition that
+      #is passed, and possible the instance variable
+      #that can be retrieved from definition[:name]
+      #Tags, tagging, tag_class and infinite_length
+      #must be set according to the values in the 
+      #definition. Finally the to_asn1 method must
+      #return the ASN1Data value. If the corresponding
+      #data in the template is nil, then nil shall also
+      #be returned.
       module Encoder
         class << self
           def to_asn1_obj(obj, definition)
@@ -782,6 +808,13 @@ module OpenSSL
         end
       end
       
+      #Every parser needs to match the ASN.1 object that is passed
+      #to it. If it matches the expected value, the Encoder must set
+      #the parsed value as an instance variable(@ + name.to_s). If
+      #successful, the Encoder shall return true, false if it cannot
+      #match the asn1 object. If it cannot match the asn1 object but
+      #a default exists, then this default must be set as an instance
+      #variable, but the parse method shall return false.
       module Parser
         class << self
           def parse_recursive(obj, asn1, definition)
