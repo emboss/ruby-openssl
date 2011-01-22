@@ -26,7 +26,7 @@ module OpenSSL
     
     #TODO: test for default_tag and default_tag_class
     #TODO: Readme: copy files under lib, too.
-    #TODO: sequence_of_choice, set_of_choice, choice
+    #TODO: sequence_of_choice, set_of_choice
     #TODO: convert infinite length primitives to a single primitive if not expected from definition
     
     #available options { optional: false, tag: nil, 
@@ -295,7 +295,7 @@ module OpenSSL
         class << self
           
           def to_asn1(obj, definition)
-            ConstructiveOfEncoder.to_asn1(OpenSSL::ASN1::Sequence, obj, definition)
+            ConstructiveOfEncoder.to_asn1(obj, definition, OpenSSL::ASN1::Sequence)
           end
         end
       end
@@ -304,7 +304,7 @@ module OpenSSL
         class << self
           
           def to_asn1(obj, definition)
-            ConstructiveOfEncoder.to_asn1(OpenSSL::ASN1::Set, obj, definition)
+            ConstructiveOfEncoder.to_asn1(obj, definition, OpenSSL::ASN1::Set)
           end
         end
       end
@@ -326,13 +326,13 @@ module OpenSSL
             seq_value = Array.new
             value.each do |element|
               #inner values are either template types or primitives
-              elem_value = element.respond_to? :to_asn1 ? 
+              elem_value = element.respond_to?(:to_asn1) ? 
                            element.to_asn1 : inner_type.new(element)
               seq_value << elem_value
             end
             asn1val = type_new(seq_value, type, tag, tagging, tag_class)
             asn1val.infinite_length = inf_length if inf_length
-            asn1val.to_asn1
+            asn1val
           end
         end
       end
@@ -342,7 +342,42 @@ module OpenSSL
           include TypeEncoder, TemplateUtil
           
           def to_asn1(obj, definition)
+            options = definition[:options]
+            name = definition[:name]
+            val = obj.instance_variable_get("@" + name.to_s)
+            value = value_raise_or_default(val, name, options)
+            unless value.is_a? ChoiceValue
+              raise ArgumentError.new("ChoiceValue expected for #{name}")
+            end
+            type = value.type
             
+            tmp_def = get_definition(value, definition[:inner_def])
+            tmp_def[:name] = :value
+            tmp_def[:options][:infinite_length] = options[:infinite_length]
+            if value.type.include? Template
+              TemplateEncoder.to_asn1(value, tmp_def)
+            elsif value.type.superclass == OpenSSL::ASN1::Primitive
+              PrimitiveEncoder.to_asn1(value, tmp_def)
+            elsif value.type.superclass == OpenSSL::ASN1::Constructive
+              ConstructiveEncoder.to_asn1(value, tmp_def)
+            elsif value.type == OpenSSL::ASN1::ASN1Data
+              value.value
+            else
+              raise ArgumentError.new("Unsupported ChoiceValue type #{value.type}")
+            end
+          end
+          
+          private
+          
+          def get_definition(choice_val, inner_def)
+            inner_def.each do |deff|
+              if choice_val.type == deff[:type] && 
+                 choice_val.tag ==deff[:tag]
+                return deff
+              end
+            end
+            raise OpenSSL::ASN1::ASN1Error.new("Found no definition for "+
+                  "#{choice_val.type} in Choice")
           end
         end
       end
@@ -521,7 +556,6 @@ module OpenSSL
             value, matched = match(asn1, type, nil, options)
             return false unless value # || matched not needed, value != false
             
-            asn1 = unpack_tagged(asn1, type, tagging)
             i = 0
             seq = asn1.value
             actual_size = seq.size
@@ -632,7 +666,6 @@ module OpenSSL
             value, matched = match(asn1, type, name, options)
             return false unless value # || matched not needed, value != false
             
-            asn1 = unpack_tagged(asn1, type, tagging)
             seq = asn1.value
             
             ret = Array.new
@@ -661,7 +694,7 @@ module OpenSSL
             end
               
             unless options[:parse_ignore]
-              obj.instance_variable_set("@" + name.to_s, instance)
+              obj.instance_variable_set("@" + name.to_s, ret)
             end
             matched
           end
@@ -673,7 +706,58 @@ module OpenSSL
           include TypeParser, TemplateUtil
           
           def parse(obj, asn1, definition)
+            options = definition[:options]
+            name = definition[:name]
+            ignore = options[:parse_ignore]
             
+            deff = match_inner_def(asn1, definition)
+            unless deff
+              unless ignore
+                obj.instance_variable_set("@" + name.to_s, options[:default])
+              end
+              return false
+            end
+            
+            return true if ignore
+              
+            deff[:name] = :value
+            type = deff[:type]
+            choice_val = ChoiceValue.new(type, nil, deff[:options][:tag])
+            if type.include? Template
+              TemplateParser.parse(choice_val, asn1, deff)
+            elsif choice_val.type.superclass == OpenSSL::ASN1::Primitive
+              PrimitiveParser.parse(choice_val, asn1, deff)
+            elsif choice_val.type.superclass == OpenSSL::ASN1::Constructive
+              ConstructiveParser.parse(choice_val, asn1, deff)
+            elsif choice_val.type == OpenSSL::ASN1::ASN1Data
+              AnyParser.parse(choice_val, asn1, deff)
+            else
+              raise ArgumentError.new("Unsupported ChoiceValue type #{value.type}")
+            end
+            obj.instance_variable_set("@" + name.to_s, choice_val)
+            true
+          end
+          
+          private
+          
+          def match_inner_def(asn1, definition)
+            name = definition[:name]
+            inner_def = definition[:inner_def]
+            outer_opts = definition[:options]
+            default = outer_opts[:default]
+                        
+            inner_def.each do |deff|
+              options = deff[:options]
+              options[:optional] = true
+              value, matched = match(asn1, deff[:type], name, options)
+              return deff if matched
+            end
+            
+            unless outer_opts[:optional] || default
+              raise OpenSSL::ASN1::ASN1Error.new(
+                "Mandatory Choice value #{name} not found.")
+            end
+            nil
           end
         end
       end
@@ -701,8 +785,8 @@ module OpenSSL
             
             define_method :declare_prim do |meth_name, type|
               eigenclass.instance_eval do
-                define_method "#{meth_name}" do |name, opts={}|
-                  attr_accessor name
+                define_method "#{meth_name}" do |name=nil, opts={}|
+                  attr_accessor name if name
                   deff = { type: type, 
                            name: name, 
                            options: opts, 
@@ -733,8 +817,8 @@ module OpenSSL
               end
             end
             
-            define_method :asn1_template do |name, type, opts={}|
-              attr_accessor name
+            define_method :asn1_template do |type, name=nil, opts={}|
+              attr_accessor name if name
               deff = { type: type, 
                        name: name, 
                        options: opts, 
@@ -743,8 +827,8 @@ module OpenSSL
               cur_def[:inner_def] << deff
             end
             
-            define_method :asn1_any do |name, opts={}|
-              attr_accessor name
+            define_method :asn1_any do |name=nil, opts={}|
+              attr_accessor name if name
               deff = { name: name, 
                        options: opts, 
                        encoder: AnyEncoder,
@@ -752,21 +836,21 @@ module OpenSSL
               cur_def[:inner_def] << deff
             end
             
-            define_method :asn1_sequence_of do |type, name, opts={}|
-              attr_accessor name
+            define_method :asn1_sequence_of do |type, name=nil, opts={}|
+              attr_accessor name if name
               deff = { inner_type: type,
                        name: name,
-                       options: options,
+                       options: opts,
                        encoder: SequenceOfEncoder,
                        parser: SequenceOfParser }
               cur_def[:inner_def] << deff
             end
             
-            define_method :asn1_set_of do |type, name, opts={}|
-              attr_accessor name
+            define_method :asn1_set_of do |type, name=nil, opts={}|
+              attr_accessor name if name
               deff = { inner_type: type,
                        name: name,
-                       options: options,
+                       options: opts,
                        encoder: SetOfEncoder,
                        parser: SetOfParser }
               cur_def[:inner_def] << deff
@@ -774,12 +858,16 @@ module OpenSSL
             
             define_method :asn1_choice do |name, opts={}, &proc|
               attr_accessor name
-              deff = { type: type,
-                       name: name,
-                       options: options,
-                       encoder: ChoiceEncoder,
-                       parser: ChoiceParser }
-              cur_def[:inner_def] << deff
+              tmp_def = cur_def
+              cur_def = { type: type,
+                          name: name,
+                          options: opts,
+                          inner_def: Array.new,
+                          encoder: ChoiceEncoder,
+                          parser: ChoiceParser }
+              proc.call
+              tmp_def[:inner_def] << cur_def
+              cur_def = tmp_def
             end
               
           end
@@ -812,6 +900,18 @@ module OpenSSL
         end
         
       end
+      
+      class ChoiceValue
+        attr_accessor :type
+        attr_accessor :tag
+        attr_accessor :value
+          
+        def initialize(type, value = nil, tag=nil)
+          @type = type
+          @value = value
+          @tag = tag
+        end
+      end
     end
   end
 end
@@ -822,7 +922,10 @@ class Validity
   asn1_declare OpenSSL::ASN1::Sequence do
     asn1_utc_time :begin
     asn1_utc_time :end, {optional: true, tag: 0, tagging: :IMPLICIT}
-    #asn1_utc_time :end, {optional: true, tag: 0, tagging: :EXPLICIT}
+    asn1_choice :choice do
+      asn1_printable_string
+      asn1_ia5_string
+    end
   end
 end
 
@@ -835,7 +938,8 @@ class Certificate
     asn1_boolean :qualified, { optional: true }
     asn1_any :whatever, { optional: true, tag: 2, tagging: :IMPLICIT }
     asn1_printable_string :issuer
-    asn1_template :validity, Validity, { tag: 1, tagging: :IMPLICIT }
+    asn1_template Validity, :validity, { tag: 1, tagging: :IMPLICIT }
+    asn1_sequence_of OpenSSL::ASN1::Integer, :seq_of
   end
 end
 
@@ -845,8 +949,11 @@ c.subject = "Martin"
 c.version = 5
 c.whatever = OpenSSL::ASN1::BitString.new("\x01")
 c.issuer = "Issuer"
+c.seq_of = [1, 2, 3]
 c.validity.begin = Time.new
 c.validity.end = Time.new
+c.validity.choice = OpenSSL::ASN1::Template::ChoiceValue.new(
+                    OpenSSL::ASN1::IA5String, "Teste Choice")
 
 asn1 = c.to_asn1
 #asn1.value.pop
