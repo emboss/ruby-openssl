@@ -196,7 +196,7 @@ module OpenSSL
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
-            return nil unless value || value != nil #need this for OpenSSL::BNs, conflict with !=
+            return nil unless value != nil #REMEMBER conflict with != ?
             type_new(value, type, tag, tagging, tag_class)
           end
         end
@@ -215,7 +215,7 @@ module OpenSSL
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
-            return nil unless value || value != nil
+            return nil unless value != nil
             
             case value
             when Array
