@@ -69,6 +69,27 @@ module OpenSSL
     end
   end
   
+  class TestNewTimestamp < MiniTest::Unit::TestCase
+    def test_create_request
+      req = OpenSSL::Timestamp::Request.new
+      req.algorithm = 'SHA1'
+      req.message_imprint = "\x01"
+      req.nonce = 17
+      req.cert_requested = true
+      
+      ext = OpenSSL::Timestamp::Extension.new
+      ext.id = "1.2.3.4.5"
+      ext.value = "\x02"
+      req.extensions = [ext]
+      
+      pp req.to_asn1
+      
+      parsed = OpenSSL::Timestamp::Request.parse(req.to_der)
+      
+      pp parsed
+    end
+  end
+  
   class TestTimestamp < MiniTest::Unit::TestCase
     include OpenSSL::TestUtils
 
