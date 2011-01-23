@@ -1,2 +1,8 @@
+=== 0.2.0 / 2011-01-23 [emboss]
+Improved handling of tag lookup for classes.
+
+The previous mechanism was walking through an array. Made constant time lookup
+by storing the information in a hash instead.
+
 === 0.1.0 / 2011-01-10 [emboss]
 Birth
