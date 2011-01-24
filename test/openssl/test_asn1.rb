@@ -462,4 +462,22 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(30, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::BMPString.new("a")))
   end
   
+  def test_default_tag_sub_class
+    asn1_class = Class.new(OpenSSL::ASN1::Integer)
+    asn1 = asn1_class.new(8)
+    assert_equal(2, OpenSSL::ASN1.default_tag(asn1))
+  end
+  
+  def test_default_tag_of_class_negative
+    assert_raises(OpenSSL::ASN1::ASN1Error) do
+      OpenSSL::ASN1.default_tag_of_class(Array)
+    end
+  end
+    
+  def test_default_tag_negative
+    assert_raises(OpenSSL::ASN1::ASN1Error) do
+      OpenSSL::ASN1.default_tag(OpenSSL::ASN1::ASN1Data.new(1, 2, nil))
+    end
+  end
+  
 end if defined?(OpenSSL)
