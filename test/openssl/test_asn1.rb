@@ -430,4 +430,36 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     end
   end
   
+  def test_default_tag_of_class
+    OpenSSL::ASN1::CLASS_TAG_MAP.each do |klass, tag|
+      assert_equal(tag, OpenSSL::ASN1.default_tag_of_class(klass))
+    end
+  end
+  
+  def test_default_tag
+    assert_equal(0, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::EndOfContent.new))    
+    assert_equal(1, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::Boolean.new(true)))
+    assert_equal(2, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::Integer.new(1)))
+    assert_equal(3, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::BitString.new("\x01")))
+    assert_equal(4, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::OctetString.new("\x01")))    
+    assert_equal(5, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::Null.new(nil)))    
+    assert_equal(6, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::ObjectId.new("1.2.3.4.5")))    
+    assert_equal(10, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::Enumerated.new(1)))    
+    assert_equal(12, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::UTF8String.new("a"))) 
+    assert_equal(16, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::Sequence.new([])))    
+    assert_equal(17, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::Set.new([])))    
+    assert_equal(18, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::NumericString.new("a")))
+    assert_equal(19, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::PrintableString.new("a")))
+    assert_equal(20, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::T61String.new("a")))
+    assert_equal(21, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::VideotexString.new("a")))
+    assert_equal(22, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::IA5String.new("a")))
+    assert_equal(23, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::UTCTime.new(Time.now)))
+    assert_equal(24, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::GeneralizedTime.new(Time.now)))
+    assert_equal(25, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::GraphicString.new("a")))
+    assert_equal(26, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::ISO64String.new("a")))
+    assert_equal(27, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::GeneralString.new("a")))
+    assert_equal(28, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::UniversalString.new("a")))
+    assert_equal(30, OpenSSL::ASN1.default_tag(OpenSSL::ASN1::BMPString.new("a")))
+  end
+  
 end if defined?(OpenSSL)
