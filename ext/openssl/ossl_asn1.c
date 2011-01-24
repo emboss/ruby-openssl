@@ -454,7 +454,7 @@ typedef struct {
 } ossl_asn1_info_t;
 
 static ossl_asn1_info_t ossl_asn1_info[] = {
-    { "END_OF_CONTENT",    &cASN1EndOfContent,    },  /*  0 */
+    { "EOC",               &cASN1EndOfContent,    },  /*  0 */
     { "BOOLEAN",           &cASN1Boolean,         },  /*  1 */
     { "INTEGER",           &cASN1Integer,         },  /*  2 */
     { "BIT_STRING",        &cASN1BitString,       },  /*  3 */
@@ -494,26 +494,6 @@ int ossl_asn1_info_size = (sizeof(ossl_asn1_info)/sizeof(ossl_asn1_info[0]));
 static VALUE class_tag_map;
 
 static int ossl_asn1_default_tag(VALUE obj);
-
-static VALUE
-ossl_asn1_default_tag_class(VALUE self, VALUE klass)
-{
-    VALUE tag = rb_hash_lookup(class_tag_map, klass);
-    if (tag != Qnil) {
-        return tag;
-    }
-
-    ossl_raise(eASN1Error, "universal tag for %s not found",
-	       rb_class2name(klass));
-
-    return Qnil; /* dummy */
-}
-
-static VALUE
-ossl_asn1_default_tag_public(VALUE self, VALUE obj)
-{
-  return INT2NUM(ossl_asn1_default_tag(obj));
-}
 
 ASN1_TYPE*
 ossl_asn1_get_asn1type(VALUE obj)
@@ -1215,8 +1195,6 @@ Init_ossl_asn1()
     rb_define_module_function(mASN1, "traverse", ossl_asn1_traverse, 1);
     rb_define_module_function(mASN1, "decode", ossl_asn1_decode, 1);
     rb_define_module_function(mASN1, "decode_all", ossl_asn1_decode_all, 1);
-    rb_define_module_function(mASN1, "default_tag_of_class", ossl_asn1_default_tag_class, 1);
-    rb_define_module_function(mASN1, "default_tag", ossl_asn1_default_tag_public, 1);
     ary = rb_ary_new();
     rb_define_const(mASN1, "UNIVERSAL_TAG_NAME", ary);
     for(i = 0; i < ossl_asn1_info_size; i++){
@@ -1313,5 +1291,6 @@ do{\
     rb_hash_aset(class_tag_map, cASN1UniversalString, INT2NUM(28));
     rb_hash_aset(class_tag_map, cASN1BMPString, INT2NUM(30));
 
+    class_tag_map = rb_obj_freeze(class_tag_map);
     rb_define_const(mASN1, "CLASS_TAG_MAP", class_tag_map);
 }
