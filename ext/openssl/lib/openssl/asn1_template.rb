@@ -131,13 +131,22 @@ module OpenSSL
             tag
           else
             tmp_type = real_type(type)
-            OpenSSL::ASN1.default_tag_of_class(tmp_type)
+            default_tag_of_class(tmp_type)
           end
+        end
+        
+        def default_tag_of_class(klass)
+          val = OpenSSL::ASN1::CLASS_TAG_MAP[klass]
+          unless val
+            raise OpenSSL::ASN1::ASN1Error.new(
+              "Universal tag for #{klass} not found")
+          end
+          val
         end
         
         def default_tag_of_type(type)
           tmp_type = real_type(type)
-          OpenSSL::ASN1.default_tag_of_class(tmp_type)
+          default_tag_of_class(tmp_type)
         end
         
       end
@@ -549,7 +558,7 @@ module OpenSSL
                 "expected to be of infinite length.")
             end
             
-            tag = OpenSSL::ASN1.default_tag_of_class(type)
+            tag = default_tag_of_class(type)
             value = Array.new
             
             asn1.each do |part|
