@@ -1,4 +1,7 @@
 === 0.2.0 / 2011-01-25 [emboss]
+Fixed encoding of subclasses of Set and Sequence with infinite length
+
+=== 0.2.0 / 2011-01-25 [emboss]
 Raise error for infinite length primitive values
 
 === 0.2.0 / 2011-01-23 [emboss]

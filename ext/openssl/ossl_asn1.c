@@ -1034,11 +1034,11 @@ ossl_asn1cons_to_der(VALUE self)
     inf_length = ossl_asn1_get_infinite_length(self);
     if (inf_length == Qtrue) {
         constructed = 2;
-        if (CLASS_OF(self) == cASN1Sequence ||
-            CLASS_OF(self) == cASN1Set) {
+        if (ossl_asn1_default_tag(self) == V_ASN1_SEQUENCE ||
+            ossl_asn1_default_tag(self) == V_ASN1_SET) {
             tag = ossl_asn1_default_tag(self);
         }
-        else { /*BIT_STRING OR OCTET_STRING*/
+	else { /*e.g. BIT_STRING OR OCTET_STRING*/
             ary = ossl_asn1_get_value(self);
             /* Recursively descend until a primitive value is found.
                The overall value of the entire constructed encoding
