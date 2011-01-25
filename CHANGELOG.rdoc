@@ -1,3 +1,6 @@
+=== 0.2.0 / 2011-01-25 [emboss]
+Raise error for infinite length primitive values
+
 === 0.2.0 / 2011-01-23 [emboss]
 Improved handling of tag lookup for classes.
 
