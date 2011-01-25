@@ -1027,18 +1027,22 @@ ossl_asn1cons_to_der(VALUE self)
     int found_prim = 0;
     long seq_len, length;
     unsigned char *p;
-    VALUE value, str, inf_length, ary, example;
+    VALUE value, str, inf_length, ary, example = Qnil;
 
     tn = NUM2INT(ossl_asn1_get_tag(self));
     tc = ossl_asn1_tag_class(self);
     inf_length = ossl_asn1_get_infinite_length(self);
     if (inf_length == Qtrue) {
         constructed = 2;
-        if (ossl_asn1_default_tag(self) == V_ASN1_SEQUENCE ||
-            ossl_asn1_default_tag(self) == V_ASN1_SET) {
+	if (rb_obj_is_kind_of(self, cASN1Sequence) ||
+            rb_obj_is_kind_of(self, cASN1Set)){
             tag = ossl_asn1_default_tag(self);
         }
-	else { /*e.g. BIT_STRING OR OCTET_STRING*/
+	else { /*must be a constructive encoding of a primitive value*/
+	    if (!rb_obj_is_kind_of(self, cASN1Constructive)){
+		ossl_raise(eASN1Error, "invalid constructed encoding");
+                return Qnil; /* dummy */
+            }
             ary = ossl_asn1_get_value(self);
             /* Recursively descend until a primitive value is found.
                The overall value of the entire constructed encoding
