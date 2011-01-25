@@ -462,4 +462,18 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     end
   end
   
+  def test_encode_subclass_sequence
+    sub = Class.new(OpenSSL::ASN1::Sequence)
+    instance = sub.new([OpenSSL::ASN1::EndOfContent.new])
+    instance.infinite_length = true
+    puts instance.to_der
+  end
+  
+  def test_encode_subclass_set
+    sub = Class.new(OpenSSL::ASN1::Set)
+    instance = sub.new([OpenSSL::ASN1::EndOfContent.new])
+    instance.infinite_length = true
+    puts instance.to_der
+  end
+  
 end if defined?(OpenSSL)

@@ -1,4 +1,7 @@
 === 0.2.0 / 2011-01-25 [emboss]
+Fixed encoding of subclasses of Set and Sequence with infinite length
+
+=== 0.2.0 / 2011-01-25 [emboss]
 Raise error for infinite length primitive values
 
 === 0.2.0 / 2011-01-23 [emboss]
@@ -8,7 +11,11 @@ The previous mechanism was walking through an array. Made constant time lookup
 by storing the information in a hash instead.
 
 === 0.2.0 / 2011-01-22 [emboss]
+<<<<<<< HEAD
 Added OpenSSL::ASN1::Template
+=======
+added OpenSSL::ASN1::Template
+>>>>>>> fix_encode_inf_cons
 
 === 0.1.0 / 2011-01-10 [emboss]
 Birth
