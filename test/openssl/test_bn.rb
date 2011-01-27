@@ -12,6 +12,12 @@ class OpenSSL::TestBN < Test::Unit::TestCase
     OpenSSL::BN.new((2 ** 107 - 1).to_s(16), 16).prime?
     OpenSSL::BN.new((2 ** 127 - 1).to_s(16), 16).prime?(1)
   end
+
+  def test_cmp_nil
+    bn = OpenSSL::BN.new('1')
+    bn == nil
+    bn != nil
+  end
 end
 
 end
