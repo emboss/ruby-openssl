@@ -25,11 +25,13 @@ module OpenSSL
     #TODO: tests for default_tag and default_tag_class in ossl_asn1.c
     #TODO: sequence_of_choice, set_of_choice
     #TODO: convert infinite length primitives to a single primitive if not expected from definition
+    #TODO: infinite length should only be a hint for encoding, primtive values should always
+    #      be parsed and in constructed case converted to a single distinct value
+    
     
     #available options { optional: false, tag: nil, 
         #                tagging: nil, infinite_length: false,
-        #                tag_class: nil, default: nil,
-        #                parse_ignore: false }
+        #                tag_class: nil, default: nil }
         #definition {type, name, inner_def, options, parser, encoder}
     module Template
       
@@ -205,7 +207,7 @@ module OpenSSL
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
-            return nil unless value != nil #REMEMBER conflict with != ?
+            return nil unless value || value != nil #can't test for if value == nil due to bug with BN
             type_new(value, type, tag, tagging, tag_class)
           end
         end
@@ -224,7 +226,7 @@ module OpenSSL
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
-            return nil unless value != nil
+            return nil unless value || value != nil
             
             case value
             when Array
@@ -288,7 +290,7 @@ module OpenSSL
             name = definition[:name]
             value = obj.instance_variable_get("@" + name.to_s)
             value_raise_or_default(value, name, options)
-            return nil unless value != nil
+            return nil if value == nil
             value.instance_variable_set(:@_options, options)
             value.to_asn1
           end
@@ -307,7 +309,7 @@ module OpenSSL
             name = definition[:name]
             value = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(value, name, options)
-            return nil unless value != nil
+            return nil unless value || value != nil
             value.tag = tag || value.tag
             if value.respond_to?(:tagging)
               value.tagging = tagging || value.tagging
@@ -343,14 +345,14 @@ module OpenSSL
           def to_asn1(obj, definition, type)
             options = definition[:options]
             name = definition[:name]
-            inner_type = definition[:inner_type]
+            inner_type = definition[:type]
             tag = options[:tag]
             tagging = options[:tagging]
             tag_class = options[:tag_class]
             inf_length = options[:infinite_length]
             value = obj.instance_variable_get("@" + name.to_s)
             value_raise_or_default(value, name, options)
-            return nil unless value != nil
+            return nil if value == nil
             seq_value = Array.new
             value.each do |element|
               #inner values are either template types or primitives
@@ -374,7 +376,7 @@ module OpenSSL
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
-            return nil unless value != nil
+            return nil if value == nil
             unless value.is_a? ChoiceValue
               raise ArgumentError.new("ChoiceValue expected for #{name}")
             end
@@ -503,6 +505,7 @@ module OpenSSL
               return default, false
             else
               unless options[:optional]
+                name = name || 'unnamed'
                 raise OpenSSL::ASN1::ASN1Error.new(
                   "Mandatory value #{name} could not be parsed. "+
                   "Expected tag: #{real_tag} Got: #{asn1.tag}")
@@ -520,10 +523,9 @@ module OpenSSL
           
           def parse(obj, asn1, definition)
             type = definition[:type]
-            name = definition[:name]
+            name = definition[:name] 
             options = definition[:options]
-            ignore = options[:parse_ignore]
-            
+                        
             if definition[:infinite_length] || asn1.infinite_length
               return PrimitiveParserInfinite.parse(obj, asn1, definition)
             end
@@ -531,7 +533,7 @@ module OpenSSL
             value, matched = match(asn1, type, name, options)
             return false unless value || matched
             
-            unless ignore
+            if name
               obj.instance_variable_set("@" + name.to_s, value)
             end
             matched
@@ -545,9 +547,8 @@ module OpenSSL
           
           def parse(obj, asn1, definition)
             type = definition[:type]
-            name = definition[:name]
+            name = definition[:name] 
             options = definition[:options]
-            ignore = options[:parse_ignore]
             
             value, matched = match(asn1, type, name, options)
             return false unless value || matched
@@ -562,7 +563,7 @@ module OpenSSL
             value = Array.new
             
             asn1.each do |part|
-              unless part.tag == OpenSSL::ASN1::END_OF_CONTENT
+              unless part.tag == OpenSSL::ASN1::EOC
                 unless part.tag == tag
                   raise OpenSSL::ASN1::ASN1Error.new(
                     "Tag mismatch for infinite length primitive " +
@@ -572,7 +573,7 @@ module OpenSSL
               end
             end
             
-            unless ignore
+            if name
               obj.instance_variable_set("@" + name.to_s, value)
             end
             matched
@@ -610,9 +611,9 @@ module OpenSSL
               end
             end
               
-            if inf_length && seq[i].tag != OpenSSL::ASN1::END_OF_CONTENT
+            if inf_length && seq[i].tag != OpenSSL::ASN1::EOC
               raise OpenSSL::ASN1::ASN1Error.new(
-                "Expected END_OF_CONTENT. Got #{seq[i].tag}")
+                "Expected EOC. Got #{seq[i].tag}")
             end
               
             num_parsed = inf_length ? i + 1 : i
@@ -629,13 +630,14 @@ module OpenSSL
           
           def handle_missing(obj, deff)
             options = deff[:options]
+            name = deff[:name]
             default = options[:default]
             unless options[:optional] || default != nil
               raise OpenSSL::ASN1::ASN1Error.new(
                 "Mandatory value #{deff[:name]} is missing.")
             end
-            if default && !options[:parse_ignore]
-                obj.instance_variable_set("@" + deff[:name].to_s, default)
+            if default && name
+                obj.instance_variable_set("@" + name.to_s, default)
             end
           end
           
@@ -647,13 +649,9 @@ module OpenSSL
           include TypeParser, TemplateUtil
           
           def parse(obj, asn1, definition)
-            type = definition[:type]
             name = definition[:name]
-            options = definition[:options]
-            ignore = options[:parse_ignore]
-            
-            instance = type.parse(asn1, options)
-            unless options[:parse_ignore]
+            instance = definition[:type].parse(asn1, definition[:options])
+            if name
               obj.instance_variable_set("@" + name.to_s, instance)
             end
             true
@@ -671,6 +669,7 @@ module OpenSSL
             
             if options[:optional]
               if (options[:tag])
+                #won't raise, tag prevents trouble with type==nil
                 value, matched = match(asn1, nil, name, options)
                 return false unless value
               else
@@ -679,7 +678,7 @@ module OpenSSL
               end
             end
             
-            unless options[:parse_ignore]
+            if name
               obj.instance_variable_set("@" + name.to_s, asn1)
             end
             true
@@ -711,7 +710,7 @@ module OpenSSL
           
           def parse(obj, asn1, definition, type)
             options = definition[:options]
-            inner_type = definition[:inner_type]
+            inner_type = definition[:type]
             is_template = inner_type.include? Template
             name = definition[:name]
             optional = options[:optional]
@@ -719,7 +718,7 @@ module OpenSSL
             inf_length = options[:infinite_length]
                         
             value, matched = match(asn1, type, name, options)
-            return false unless value # || matched not needed, value != false
+            return false if value == nil
             
             seq = asn1.value
             
@@ -733,7 +732,7 @@ module OpenSSL
             end
             
             seq.each do |val|
-              next if val.tag == OpenSSL::ASN1::END_OF_CONTENT
+              next if val.tag == OpenSSL::ASN1::EOC
               
               if is_template
                 TemplateParser.parse(tmp, val, deff)
@@ -743,12 +742,12 @@ module OpenSSL
               end
             end
               
-            if inf_length && seq[seq.size - 1].tag != OpenSSL::ASN1::END_OF_CONTENT
+            if inf_length && seq[seq.size - 1].tag != OpenSSL::ASN1::EOC
               raise OpenSSL::ASN1::ASN1Error.new(
-                "Expected END_OF_CONTENT. Got #{seq[i].tag}")
+                "Expected EOC. Got #{seq[i].tag}")
             end
               
-            unless options[:parse_ignore]
+            if name
               obj.instance_variable_set("@" + name.to_s, ret)
             end
             matched
@@ -763,17 +762,17 @@ module OpenSSL
           def parse(obj, asn1, definition)
             options = definition[:options]
             name = definition[:name]
-            ignore = options[:parse_ignore]
             
             deff = match_inner_def(asn1, definition)
             unless deff
-              unless ignore
-                obj.instance_variable_set("@" + name.to_s, options[:default])
+              default = options[:default]
+              if name && default
+                obj.instance_variable_set("@" + name.to_s, default)
               end
               return false
             end
             
-            return true if ignore
+            return true unless name
               
             deff[:name] = :value
             type = deff[:type]
@@ -847,7 +846,7 @@ module OpenSSL
             
             define_method :declare_prim do |meth_name, type|
               eigenclass.instance_eval do
-                define_method "#{meth_name}" do |name=nil, opts={}|
+                define_method meth_name do |name=nil, opts={}|
                   attr_accessor name if name
                   deff = { type: type, 
                            name: name, 
@@ -865,7 +864,7 @@ module OpenSSL
               end
               
               eigenclass.instance_eval do
-                define_method "#{meth_name}" do |opts={}, &proc|
+                define_method meth_name do |opts={}, &proc|
                   tmp_def = cur_def
                   cur_def = { type: type,
                               options: opts, 
@@ -879,14 +878,18 @@ module OpenSSL
               end
             end
             
-            define_method :asn1_template do |type, name=nil, opts={}|
-              attr_accessor name if name
-              deff = { type: type, 
-                       name: name, 
-                       options: opts, 
-                       encoder: TemplateEncoder,
-                       parser: TemplateParser }
-              cur_def[:inner_def] << deff
+            define_method :declare_special_typed do |meth_name, encoder, parser|
+              eigenclass.instance_eval do
+                define_method meth_name do |type, name=nil, opts={}|
+                  attr_accessor name if name
+                  deff = { type: type,
+                           name: name,
+                           options: opts,
+                           encoder: encoder,
+                           parser: parser }
+                  cur_def[:inner_def] << deff
+                end
+              end
             end
             
             define_method :asn1_any do |name=nil, opts={}|
@@ -895,26 +898,6 @@ module OpenSSL
                        options: opts, 
                        encoder: AnyEncoder,
                        parser: AnyParser }
-              cur_def[:inner_def] << deff
-            end
-            
-            define_method :asn1_sequence_of do |type, name=nil, opts={}|
-              attr_accessor name if name
-              deff = { inner_type: type,
-                       name: name,
-                       options: opts,
-                       encoder: SequenceOfEncoder,
-                       parser: SequenceOfParser }
-              cur_def[:inner_def] << deff
-            end
-            
-            define_method :asn1_set_of do |type, name=nil, opts={}|
-              attr_accessor name if name
-              deff = { inner_type: type,
-                       name: name,
-                       options: opts,
-                       encoder: SetOfEncoder,
-                       parser: SetOfParser }
               cur_def[:inner_def] << deff
             end
             
@@ -934,29 +917,33 @@ module OpenSSL
               
           end
           
-          declare_prim("asn1_boolean", OpenSSL::ASN1::Boolean)
-          declare_prim("asn1_integer", OpenSSL::ASN1::Integer)
-          declare_prim("asn1_bit_string", OpenSSL::ASN1::BitString)
-          declare_prim("asn1_octet_string", OpenSSL::ASN1::OctetString)
-          declare_prim("asn1_null", OpenSSL::ASN1::Null)
-          declare_prim("asn1_object_id", OpenSSL::ASN1::ObjectId)
-          declare_prim("asn1_enumerated", OpenSSL::ASN1::Enumerated)
-          declare_prim("asn1_utf8_string", OpenSSL::ASN1::UTF8String)
-          declare_prim("asn1_numeric_string", OpenSSL::ASN1::NumericString)
-          declare_prim("asn1_printable_string", OpenSSL::ASN1::PrintableString)
-          declare_prim("asn1_t61_string", OpenSSL::ASN1::T61String)
-          declare_prim("asn1_videotex_string", OpenSSL::ASN1::VideotexString)
-          declare_prim("asn1_ia5_string", OpenSSL::ASN1::IA5String)
-          declare_prim("asn1_utc_time", OpenSSL::ASN1::UTCTime)
-          declare_prim("asn1_generalized_time", OpenSSL::ASN1::GeneralizedTime)
-          declare_prim("asn1_graphic_string", OpenSSL::ASN1::GraphicString)
-          declare_prim("asn1_iso64_string", OpenSSL::ASN1::ISO64String)
-          declare_prim("asn1_general_string", OpenSSL::ASN1::GeneralString)
-          declare_prim("asn1_universal_string", OpenSSL::ASN1::UniversalString)
-          declare_prim("asn1_bmp_string", OpenSSL::ASN1::BMPString)
+          declare_prim(:asn1_boolean, OpenSSL::ASN1::Boolean)
+          declare_prim(:asn1_integer, OpenSSL::ASN1::Integer)
+          declare_prim(:asn1_bit_string, OpenSSL::ASN1::BitString)
+          declare_prim(:asn1_octet_string, OpenSSL::ASN1::OctetString)
+          declare_prim(:asn1_null, OpenSSL::ASN1::Null)
+          declare_prim(:asn1_object_id, OpenSSL::ASN1::ObjectId)
+          declare_prim(:asn1_enumerated, OpenSSL::ASN1::Enumerated)
+          declare_prim(:asn1_utf8_string, OpenSSL::ASN1::UTF8String)
+          declare_prim(:asn1_numeric_string, OpenSSL::ASN1::NumericString)
+          declare_prim(:asn1_printable_string, OpenSSL::ASN1::PrintableString)
+          declare_prim(:asn1_t61_string, OpenSSL::ASN1::T61String)
+          declare_prim(:asn1_videotex_string, OpenSSL::ASN1::VideotexString)
+          declare_prim(:asn1_ia5_string, OpenSSL::ASN1::IA5String)
+          declare_prim(:asn1_utc_time, OpenSSL::ASN1::UTCTime)
+          declare_prim(:asn1_generalized_time, OpenSSL::ASN1::GeneralizedTime)
+          declare_prim(:asn1_graphic_string, OpenSSL::ASN1::GraphicString)
+          declare_prim(:asn1_iso64_string, OpenSSL::ASN1::ISO64String)
+          declare_prim(:asn1_general_string, OpenSSL::ASN1::GeneralString)
+          declare_prim(:asn1_universal_string, OpenSSL::ASN1::UniversalString)
+          declare_prim(:asn1_bmp_string, OpenSSL::ASN1::BMPString)
           
-          declare_cons("asn1_sequence", OpenSSL::ASN1::Sequence)
-          declare_cons("asn1_set", OpenSSL::ASN1::Set)
+          declare_cons(:asn1_sequence, OpenSSL::ASN1::Sequence)
+          declare_cons(:asn1_set, OpenSSL::ASN1::Set)
+          
+          declare_special_typed(:asn1_template, TemplateEncoder, TemplateParser)
+          declare_special_typed(:asn1_sequence_of, SequenceOfEncoder, SequenceOfParser)
+          declare_special_typed(:asn1_set_of, SetOfEncoder, SetOfParser)
           
           yield
         end
