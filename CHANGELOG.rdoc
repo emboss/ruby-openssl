@@ -1,2 +1,5 @@
 === 0.1.0 / 2011-01-10 [emboss]
+Reset master to reflect status in official repo.
+
+=== 0.1.0 / 2011-01-10 [emboss]
 Birth
