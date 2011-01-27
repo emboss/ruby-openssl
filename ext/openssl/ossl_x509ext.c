@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509ext.c 30213 2010-12-14 18:24:44Z kosaki $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.

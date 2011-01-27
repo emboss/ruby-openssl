@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509attr.c 27437 2010-04-22 08:04:13Z nobu $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001 Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.

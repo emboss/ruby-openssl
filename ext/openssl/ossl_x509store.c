@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509store.c 30152 2010-12-09 17:18:54Z tenderlove $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.

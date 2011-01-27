@@ -1,5 +1,5 @@
 /*
- * $Id: ossl.c 30174 2010-12-10 23:13:47Z drbrain $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -865,9 +865,6 @@ Init_openssl()
     Init_ossl_pkey();
     Init_ossl_rand();
     Init_ossl_ssl();
-#if HAVE_OPENSSL_TS_H
-    Init_ossl_ts();
-#endif
     Init_ossl_x509();
     Init_ossl_ocsp();
     Init_ossl_engine();

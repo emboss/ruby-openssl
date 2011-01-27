@@ -11,7 +11,7 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: bn.rb 29407 2010-10-04 00:33:22Z naruse $
+  $Id$
 =end
 
 ##

@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_asn1.c 30195 2010-12-14 01:30:41Z usa $
+ * $Id$
  * 'OpenSSL for Ruby' team members
  * Copyright (C) 2003
  * All rights reserved.
@@ -772,6 +772,9 @@ ossl_asn1_decode0(unsigned char **pp, long length, long *offset, long depth,
 	    else value = ossl_asn1_decode0(&p, len, &off, depth+1, 0, yield);
 	}
 	else{
+	    if ((j & 0x01) && (len == 0)) {
+		ossl_raise(eASN1Error, "Infinite length for primitive value");
+	    }
 	    value = rb_str_new((const char *)p, len);
 	    p += len;
 	    off += len;

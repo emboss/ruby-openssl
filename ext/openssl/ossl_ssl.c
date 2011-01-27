@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_ssl.c 30488 2011-01-07 16:32:10Z tenderlove $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2000-2002  GOTOU Yuuzou <gotoyuzo@notwork.org>
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>

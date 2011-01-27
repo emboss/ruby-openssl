@@ -11,7 +11,7 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: extconf.rb 30167 2010-12-10 17:24:30Z tenderlove $
+  $Id$
 =end
 
 require "mkmf"
@@ -127,7 +127,6 @@ end
 have_struct_member("EVP_CIPHER_CTX", "flags", "openssl/evp.h")
 have_struct_member("EVP_CIPHER_CTX", "engine", "openssl/evp.h")
 have_struct_member("X509_ATTRIBUTE", "single", "openssl/x509.h")
-have_header("openssl/ts.h")
 
 message "=== Checking done. ===\n"
 

@@ -11,7 +11,7 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: x509-internal.rb 29217 2010-09-10 08:54:50Z nahi $
+  $Id$
 =end
 
 module OpenSSL

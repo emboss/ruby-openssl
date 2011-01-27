@@ -1,5 +1,5 @@
 /*
- * $Id: ossl.h 26781 2010-02-28 02:56:26Z naruse $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -59,9 +59,6 @@ extern "C" {
 #include <openssl/rand.h>
 #include <openssl/conf.h>
 #include <openssl/conf_api.h>
-#if HAVE_OPENSSL_TS_H
-  #include <openssl/ts.h>
-#endif
 #undef X509_NAME
 #undef PKCS7_SIGNER_INFO
 #if defined(HAVE_OPENSSL_ENGINE_H) && defined(HAVE_ST_ENGINE)
@@ -218,9 +215,6 @@ void ossl_debug(const char *, ...);
 #include "ossl_pkey.h"
 #include "ossl_rand.h"
 #include "ossl_ssl.h"
-#if HAVE_OPENSSL_TS_H
-  #include "ossl_ts.h"
-#endif
 #include "ossl_version.h"
 #include "ossl_x509.h"
 #include "ossl_engine.h"

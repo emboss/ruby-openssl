@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_engine.c 27457 2010-04-23 08:37:55Z usa $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2003  GOTOU Yuuzou <gotoyuzo@notwork.org>
  * All rights reserved.

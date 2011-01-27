@@ -11,7 +11,7 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: digest.rb 26743 2010-02-23 17:33:39Z knu $
+  $Id$
 =end
 
 ##
