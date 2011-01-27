@@ -2,26 +2,11 @@ require_relative 'utils'
 
 class  OpenSSL::TestASN1 < Test::Unit::TestCase
   def test_asn1_boolean
-    template = Class.new do
-      include OpenSSL::ASN1::Template
-      
-      asn1_declare OpenSSL::ASN1::Sequence do
-        asn1_boolean :bool
-      end
-    end
-    
-    t = template.new
-    t.bool = true
-    asn1 = t.to_asn1
-    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
-    assert_equal(1, asn1.value.size)
-    asn1bool = asn1.value.first
-    assert_universal(OpenSSL::ASN1::BOOLEAN, asn1bool)
-    assert_equal(true, asn1bool.value)
-    
-    p = template.parse(OpenSSL::ASN1.decode(asn1.to_der))
-    
-    assert_equal(true, p.bool)
+    check_asn1_primitive(:asn1_boolean, OpenSSL::ASN1::BOOLEAN, true)
+  end
+  
+  def test_asn1_integer
+    check_asn1_primitive(:asn1_integer, OpenSSL::ASN1::INTEGER, 1)
   end
   
   #TODO for all primitives
@@ -49,9 +34,11 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_universal(OpenSSL::ASN1::INTEGER, asn1int)
     assert_equal(1, asn1int.value)
     
-    p = template.parse(OpenSSL::ASN1.decode(asn1.to_der))
+    der = asn1.to_der
+    p = template.parse(OpenSSL::ASN1.decode(der))
     
     assert_equal(1, p.a)
+    assert_equal(der, p.to_der)
   end
   
   def test_asn1_set
@@ -77,9 +64,19 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_universal(OpenSSL::ASN1::INTEGER, asn1int)
     assert_equal(1, asn1int.value)
     
-    p = template.parse(OpenSSL::ASN1.decode(asn1.to_der))
+    der = asn1.to_der
+    p = template.parse(OpenSSL::ASN1.decode(der))
     
     assert_equal(1, p.a)
+    assert_equal(der, p.to_der)
+  end
+  
+  def test_asn1_sequence_of_primitive
+    check_asn1_constructive_of_primitive(:asn1_sequence_of, OpenSSL::ASN1::SEQUENCE)
+  end
+  
+  def test_asn1_set_of_primitive
+    check_asn1_constructive_of_primitive(:asn1_set_of, OpenSSL::ASN1::SET)
   end
   
   def test_asn1_any
@@ -100,11 +97,13 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_universal(OpenSSL::ASN1::INTEGER, asn1int)
     assert_equal(1, asn1int.value)
     
-    p = template.parse(OpenSSL::ASN1.decode(asn1.to_der))
+    der = asn1.to_der
+    p = template.parse(OpenSSL::ASN1.decode(der))
     
     assert_equal(true, p.a.is_a?(OpenSSL::ASN1::Integer))
     assert_universal(OpenSSL::ASN1::INTEGER, p.a)
     assert_equal(1, p.a.value)
+    assert_equal(der, p.to_der)
   end
   
   def test_asn1_any_tagged
@@ -125,7 +124,8 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_tagged(0, :IMPLICIT, asn1int)
     assert_equal(1, asn1int.value)
     
-    p = template.parse(OpenSSL::ASN1.decode(asn1.to_der))
+    der = asn1.to_der
+    p = template.parse(OpenSSL::ASN1.decode(der))
     
     assert_equal(true, p.a.is_a?(OpenSSL::ASN1::ASN1Data))
     assert_tagged(0, nil, p.a)
@@ -134,6 +134,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     p.a.tag_class = :UNIVERSAL
     pint = OpenSSL::ASN1.decode(p.a.to_der)
     assert_equal(1, pint.value)
+    assert_equal(der, p.to_der)
   end
   
   def test_parse_raw
@@ -233,6 +234,62 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
       assert_equal(tagging, asn1.tagging)
     end
     assert_equal(:CONTEXT_SPECIFIC, asn1.tag_class)
+  end
+  
+  def check_asn1_primitive(prim_declare, tag, value)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        send(prim_declare, :name)
+      end
+    end
+    
+    t = template.new
+    t.name = value
+    asn1 = t.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    asn1prim = asn1.value.first
+    assert_universal(tag, asn1prim)
+    assert_equal(value, asn1prim.value)
+    
+    der = asn1.to_der
+    p = template.parse(OpenSSL::ASN1.decode(der))
+    
+    assert_equal(value, p.name)
+    assert_equal(der, p.to_der)
+  end
+  
+  def check_asn1_constructive_of_primitive(cons_declare, tag)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        send(cons_declare, OpenSSL::ASN1::Integer, :a)
+      end
+    end
+    
+    t = template.new
+    t.a = [ 0, 1 ]
+    asn1 = t.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    ary = asn1.value
+    assert_universal(tag, ary[0])
+    ary = ary[0]
+    assert_equal(2, ary.value.size)
+    assert_universal(OpenSSL::ASN1::INTEGER, ary.value[0])
+    assert_equal(0, ary.value[0].value)
+    assert_universal(OpenSSL::ASN1::INTEGER, ary.value[1])
+    assert_equal(1, ary.value[1].value)
+    
+    der = asn1.to_der
+    p = template.parse(OpenSSL::ASN1.decode(asn1.to_der))
+    
+    assert_equal(0, p.a[0])
+    assert_equal(1, p.a[1])
+    assert_equal(der, p.to_der)
   end
   
 end
