@@ -1,3 +1,8 @@
+=== 0.2.0 / 2011-01-27 [emboss]
+Fixed bug in GetBNPtr(VALUE obj).
+
+Testing a BN for == nil or != nil raised a TypeError before.
+
 === 0.2.0 / 2011-01-25 [emboss]
 Fixed encoding of subclasses of Set and Sequence with infinite length
 
