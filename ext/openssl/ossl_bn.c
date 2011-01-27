@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_bn.c 30090 2010-12-06 00:54:44Z drbrain $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Technorama team <oss-ruby@technorama.net>
  * All rights reserved.
@@ -69,6 +69,8 @@ GetBNPtr(VALUE obj)
 	    ossl_raise(eBNError, NULL);
 	}
 	WrapBN(cBN, obj, bn); /* Handle potencial mem leaks */
+	break;
+    case T_NIL:
 	break;
     default:
 	ossl_raise(rb_eTypeError, "Cannot convert into OpenSSL::BN");
