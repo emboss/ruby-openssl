@@ -1,4 +1,7 @@
 === 0.2.0 / 2011-01-27 [emboss]
+Added further tests for choices and fixed bugs.
+
+=== 0.2.0 / 2011-01-27 [emboss]
 * Adapted template to include fix for GetBNPtr(VALUE obj).
 
 Before the test for nil was "unless value || value != nil", now it is 

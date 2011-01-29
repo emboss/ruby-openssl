@@ -7,16 +7,13 @@
 * Test that ensure that the temporary parse data is not changed (e.g. parse twice, see 
 if it works, especially tagged data)
 
+* Choice with asn1_sequence & asn1_set
 
-* Choice with templates
+* Choice with asn1_any
 
-* Choice tagged with templates
+* Choice with asn1_sequence_of && asn1_set_of
 
-* Implict & explicit tagging for primitives
-
-* Implict & explicit tagging for constructed values
-
-* Implict & explicit tagging for templates
+* Implict & explicit tagging for asn1_sequence_of && asn1_set_of
 
 === String encoders
 

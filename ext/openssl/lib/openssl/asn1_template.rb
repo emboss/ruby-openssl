@@ -116,7 +116,7 @@ module OpenSSL
           unless type.include? Template
             type
           else
-            type._definition[:type]
+            type.instance_variable_get(:@_definition)[:type]
           end
         end
         
@@ -260,7 +260,7 @@ module OpenSSL
             tagging = options[:tagging]
             tag_class = options[:tag_class]
             value = Array.new
-              
+            
             inner_def.each do |element|
               inner_obj = Encoder.to_asn1_obj(obj, element)
               value << inner_obj if inner_obj
@@ -289,8 +289,8 @@ module OpenSSL
             value = obj.instance_variable_get("@" + name.to_s)
             value_raise_or_default(value, name, options)
             return nil if value == nil
-            value.instance_variable_set(:@_options, options)
-            value.to_asn1
+            val_def = value.class.instance_variable_get(:@_definition).merge({ options: options })
+            Encoder.to_asn1_obj(value, val_def)
           end
         end
       end
@@ -392,7 +392,7 @@ module OpenSSL
             elsif value.type == OpenSSL::ASN1::ASN1Data
               value.value
             else
-              raise ArgumentError.new("Unsupported ChoiceValue type #{value.type}")
+              raise ArgumentError.new("Unsuorted ChoiceValue type #{value.type}")
             end
           end
           
@@ -401,8 +401,8 @@ module OpenSSL
           def get_definition(choice_val, inner_def)
             inner_def.each do |deff|
               if choice_val.type == deff[:type] && 
-                 choice_val.tag ==deff[:options][:tag]
-                return deff
+                 choice_val.tag == deff[:options][:tag]
+                return deff.merge({})
               end
             end
             raise OpenSSL::ASN1::ASN1Error.new("Found no definition for "+
@@ -590,11 +590,10 @@ module OpenSSL
             tagging = options[:tagging]
             inf_length = options[:infinite_length]
             
-            value, matched = match(asn1, type, nil, options)
-            return false unless value # || matched not needed, value != false
+            seq, matched = match(asn1, type, nil, options)
+            return false unless seq # || matched not needed, value != false
             
             i = 0
-            seq = asn1.value
             actual_size = seq.size
             
             check_size_cons(actual_size, inner_def, inf_length)
@@ -714,10 +713,8 @@ module OpenSSL
             tagging = options[:tagging]
             inf_length = options[:infinite_length]
                         
-            value, matched = match(asn1, type, name, options)
-            return false if value == nil
-            
-            seq = asn1.value
+            seq, matched = match(asn1, type, name, options)
+            return false unless seq
             
             ret = Array.new
             if is_template
@@ -928,8 +925,7 @@ module OpenSSL
             define_method :asn1_choice do |name, opts={}, &proc|
               attr_accessor name
               tmp_def = cur_def
-              cur_def = { type: type,
-                          name: name,
+              cur_def = { name: name,
                           options: opts,
                           inner_def: Array.new,
                           encoder: ChoiceEncoder,
