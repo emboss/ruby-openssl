@@ -82,6 +82,58 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     check_asn1_primitive(:asn1_bmp_string, OpenSSL::ASN1::BMPSTRING, "abc")
   end
   
+  def test_implicit_tagged_primitive
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_printable_string :a, { tag: 0, tagging: :IMPLICIT }
+      end
+    end
+    
+    t = template.new
+    t.a = 'a'
+    asn1 = t.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    s = asn1.value.first
+    assert_tagged(0, :IMPLICIT, s)
+    assert_equal('a', s.value)
+    
+    der = asn1.to_der
+    p = template.parse(der)
+    
+    assert_equal('a', p.a)
+    assert_equal(der, p.to_der)
+  end
+  
+  def test_explicit_tagged_primitive
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a, { tag: 0, tagging: :EXPLICIT }
+      end
+    end
+    
+    t = template.new
+    t.a = 1
+    asn1 = t.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    int = asn1.value.first
+    assert_tagged(0, :EXPLICIT, int)
+    assert_equal(1, int.value)
+    
+    der = asn1.to_der
+    p = template.parse(der)
+    
+    assert_equal(1, p.a)
+    assert_equal(der, p.to_der)
+  end
+  
   def test_asn1_sequence
     check_cons(:asn1_sequence, OpenSSL::ASN1::Sequence)
   end
@@ -96,6 +148,22 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
   
   def test_asn1_nested_set
     check_cons_nested(:asn1_set, OpenSSL::ASN1::SET)
+  end
+  
+  def test_asn1_sequence_implicit_tagged
+    check_cons_tagged(:asn1_sequence, OpenSSL::ASN1::Sequence, :IMPLICIT)
+  end
+  
+  def test_asn1_set_implicit_tagged
+    check_cons_tagged(:asn1_set, OpenSSL::ASN1::Set, :IMPLICIT)
+  end
+  
+  def test_asn1_sequence_explicit_tagged
+    check_cons_tagged(:asn1_sequence, OpenSSL::ASN1::Sequence, :EXPLICIT)
+  end
+  
+  def test_asn1_set_explicit_tagged
+    check_cons_tagged(:asn1_set, OpenSSL::ASN1::Set, :EXPLICIT)
   end
   
   def test_asn1_sequence_of_primitive
@@ -200,6 +268,14 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
   
+  def test_asn1_template_implicitly_tagged
+    check_template_tagged(:IMPLICIT)
+  end
+  
+  def test_asn1_template_explicitly_tagged
+    check_template_tagged(:EXPLICIT)
+  end
+  
   def test_asn1_choice_int
     check_asn1_choice_int_bool(OpenSSL::ASN1::Integer, 1)
   end
@@ -208,12 +284,36 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     check_asn1_choice_int_bool(OpenSSL::ASN1::Boolean, true)
   end
   
-  def test_implcitly_tagged_choice_0
-    check_implcitly_tagged_choice(0)
+  def test_implicitly_tagged_choice_0
+    check_tagged_choice(0, :IMPLICIT)
   end
   
-  def test_implcitly_tagged_choice_1
-    check_implcitly_tagged_choice(1)
+  def test_implicitly_tagged_choice_1
+    check_tagged_choice(1, :IMPLICIT)
+  end
+  
+  def test_explicitly_tagged_choice_0
+    check_tagged_choice(0, :EXPLICIT)
+  end
+  
+  def test_explicitly_tagged_choice_1
+    check_tagged_choice(1, :EXPLICIT)
+  end
+  
+  def test_choice_templates0_explicit
+    check_choice_templates(0, :EXPLICIT)
+  end
+  
+  def test_choice_templates0_implicit
+    check_choice_templates(0, :IMPLICIT)
+  end
+  
+  def test_choice_templates1_explicit
+    check_choice_templates(1, :EXPLICIT)
+  end
+  
+  def test_choice_templates1_implicit
+    check_choice_templates(1, :IMPLICIT)
   end
   
   def test_parse_raw
@@ -495,6 +595,36 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
   
+  def check_cons_tagged(cons_declare, type, tagging)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      proc = proc { asn1_integer :a }
+      
+      asn1_declare type do
+        send(cons_declare, { tag: 0, tagging: tagging}, &proc)
+      end
+    end
+    
+    t = template.new
+    t.a = 1
+    asn1 = t.to_asn1
+    assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], asn1)
+    assert_equal(1, asn1.value.size)
+    asn1set = asn1.value.first
+    assert_tagged(0, tagging, asn1set)
+    assert_equal(1, asn1.value.size)
+    asn1int = asn1set.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, asn1int)
+    assert_equal(1, asn1int.value)
+    
+    der = asn1.to_der
+    p = template.parse(OpenSSL::ASN1.decode(der))
+    
+    assert_equal(1, p.a)
+    assert_equal(der, p.to_der)
+  end
+  
   def check_asn1_choice_int_bool(type, value)
     template = Class.new do
       include OpenSSL::ASN1::Template
@@ -526,14 +656,14 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
   
-  def check_implcitly_tagged_choice(tag)
+  def check_tagged_choice(tag, tagging)
     template = Class.new do
       include OpenSSL::ASN1::Template
       
       asn1_declare OpenSSL::ASN1::Sequence do
         asn1_choice :a do
-          asn1_integer nil, { tag: 0, tagging: :IMPLICIT }
-          asn1_integer nil, { tag: 1, tagging: :IMPLICIT }
+          asn1_integer nil, { tag: 0, tagging: tagging }
+          asn1_integer nil, { tag: 1, tagging: tagging }
         end
       end
     end
@@ -545,7 +675,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
     assert_equal(1, asn1.value.size)
     int = asn1.value.first
-    assert_tagged(tag, :IMPLICIT, int)
+    assert_tagged(tag, tagging, int)
     assert_equal(1, int.value)
     der = asn1.to_der
     
@@ -553,6 +683,101 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     cv = p.a
     assert_equal(OpenSSL::ASN1::Integer, cv.type)
     assert_equal(1, cv.value)
+    assert_equal(tag, cv.tag)
+    assert_equal(der, p.to_der)
+  end
+  
+  def check_template_tagged(tagging)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a
+      end
+    end
+    
+    container = Class.new do
+      include OpenSSL::ASN1::Template
+        
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_template template, :a, { tag: 0, tagging: tagging }
+      end
+    end
+    
+    c = container.new
+    c.a.a = 1
+    asn1 = c.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    seq = asn1.value.first
+    assert_tagged(0, tagging, seq)
+    assert_equal(1, seq.value.size)
+    int = seq.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(1, int.value)
+    
+    der = asn1.to_der
+    p = container.parse(der)
+    assert_equal(1, p.a.a)
+    assert_equal(der, p.to_der)
+  end
+  
+  def check_choice_templates(tag, tagging)
+    template1 = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a
+      end
+    end
+    
+    template2 = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a
+      end
+    end
+    
+    container = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_choice :choice do
+          asn1_template template1, nil, { tag: 0, tagging: tagging }
+          asn1_template template2, nil, { tag: 1, tagging: tagging }
+        end
+      end
+    end
+    
+    c = container.new
+    
+    type = if tag == 0
+      template1
+    else
+      template2
+    end
+    
+    t = type.new
+    t.a = 1
+    
+    c.choice = OpenSSL::ASN1::Template::ChoiceValue.new(type, t, tag)
+    
+    asn1 = c.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    seq = asn1.value.first
+    assert_tagged(tag, tagging, seq)
+    assert_equal(1, seq.value.size)
+    int = seq.value.first
+    assert_equal(1, int.value)
+    der = asn1.to_der
+    
+    p = container.parse(der)
+    cv = p.choice
+    assert_equal(type, cv.type)
+    assert_equal(1, cv.value.a)
     assert_equal(tag, cv.tag)
     assert_equal(der, p.to_der)
   end
