@@ -1,22 +1,41 @@
 === 0.2.0 / 2011-01-27 [emboss]
-Fixed bug in GetBNPtr(VALUE obj).
+* Adapted template to include fix for GetBNPtr(VALUE obj).
+
+Before the test for nil was "unless value || value != nil", now it is 
+"if value == nil"
+
+* Fixed bug for choice value matching.
+
+Previously tag was set in the definition, now it's correctly set in 
+options.
+
+* Added tests for choice declarations.
+
+* Added tests for primitives.
+
+* Added UTF8Parser to enforce UTF-8 encoding.
+
+Otherwise the test original == parsed would fail.
+
+=== 0.2.0 / 2011-01-27 [emboss]
+* Fixed bug in GetBNPtr(VALUE obj).
 
 Testing a BN for == nil or != nil raised a TypeError before.
 
 === 0.2.0 / 2011-01-25 [emboss]
-Fixed encoding of subclasses of Set and Sequence with infinite length
+* Fixed encoding of subclasses of Set and Sequence with infinite length
 
 === 0.2.0 / 2011-01-25 [emboss]
-Raise error for infinite length primitive values
+* Raise error for infinite length primitive values
 
 === 0.2.0 / 2011-01-23 [emboss]
-Improved handling of tag lookup for classes.
+* Improved handling of tag lookup for classes.
 
 The previous mechanism was walking through an array. Made constant time lookup
 by storing the information in a hash instead.
 
 === 0.2.0 / 2011-01-22 [emboss]
-added OpenSSL::ASN1::Template
+* added OpenSSL::ASN1::Template
 
 === 0.1.0 / 2011-01-10 [emboss]
-Birth
+* Birth

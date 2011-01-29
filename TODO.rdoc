@@ -1,0 +1,33 @@
+== OpenSSL::ASN1::Template
+
+=== sequence_of_choice, set_of_choice
+
+=== Tests 
+
+* Test that ensure that the temporary parse data is not changed (e.g. parse twice, see 
+if it works, especially tagged data)
+
+
+* Choice with templates
+
+* Choice tagged with templates
+
+* Implict & explicit tagging for primitives
+
+* Implict & explicit tagging for constructed values
+
+* Implict & explicit tagging for templates
+
+=== String encoders
+
+Introduce encoders that force a certain encoding that is specific to the string type?
+
+=== Infinite length
+
+* convert infinite length primitives to a single primitive if not expected from definition
+* infinite length should only be a hint for encoding, primtive values should always
+  be parsed and in constructed case converted to a single distinct value
+
+=== Multi-threaded parsing
+
+Sequences and sets could be parsed using threads from a thread pool to boost performance
