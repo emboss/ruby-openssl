@@ -21,18 +21,10 @@ module OpenSSL
     #parsing and encoding facilities by adding a +to_der+ method to the
     #class instance and by providing a +parse+ class method in the class that
     #includes this module.
-    
-    #TODO: tests for default_tag and default_tag_class in ossl_asn1.c
-    #TODO: sequence_of_choice, set_of_choice
-    #TODO: convert infinite length primitives to a single primitive if not expected from definition
-    #TODO: infinite length should only be a hint for encoding, primtive values should always
-    #      be parsed and in constructed case converted to a single distinct value
-    
-    
     #available options { optional: false, tag: nil, 
-        #                tagging: nil, infinite_length: false,
-        #                tag_class: nil, default: nil }
-        #definition {type, name, inner_def, options, parser, encoder}
+    #                    tagging: nil, infinite_length: false,
+    #                    tag_class: nil, default: nil }
+    #definition {type, name, inner_def, options, parser, encoder}
     module Template
       
       def self.included(base)
@@ -206,8 +198,14 @@ module OpenSSL
             tag_class = options[:tag_class]
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
-            value = value_raise_or_default(val, name, options)
-            return nil unless value || value != nil #can't test for if value == nil due to bug with BN
+            
+            if type == OpenSSL::ASN1::Null
+              return nil if options[:optional]
+              return type_new(nil, type, tag, tagging, tag_class)
+            end
+            
+            value = value_raise_or_default(val, name, options) 
+            return nil if value == nil
             type_new(value, type, tag, tagging, tag_class)
           end
         end
@@ -226,7 +224,7 @@ module OpenSSL
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
-            return nil unless value || value != nil
+            return nil if value == nil
             
             case value
             when Array
@@ -309,7 +307,7 @@ module OpenSSL
             name = definition[:name]
             value = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(value, name, options)
-            return nil unless value || value != nil
+            return nil if value == nil
             value.tag = tag || value.tag
             if value.respond_to?(:tagging)
               value.tagging = tagging || value.tagging
@@ -403,7 +401,7 @@ module OpenSSL
           def get_definition(choice_val, inner_def)
             inner_def.each do |deff|
               if choice_val.type == deff[:type] && 
-                 choice_val.tag ==deff[:tag]
+                 choice_val.tag ==deff[:options][:tag]
                 return deff
               end
             end
@@ -469,13 +467,12 @@ module OpenSSL
           #implicitly tagged constructed values already contain
           #an array value; no need to en- and decode them as for 
           #primitive values
-          asn1.tag = real_tag
-          asn1.tag_class = :UNIVERSAL
+          tmp_asn1 = OpenSSL::ASN1::ASN1Data.new(asn1.value, real_tag, :UNIVERSAL)
           unless real_tag == OpenSSL::ASN1::SEQUENCE ||
                  real_tag == OpenSSL::ASN1::SET
-            OpenSSL::ASN1.decode(asn1.to_der)
+            OpenSSL::ASN1.decode(tmp_asn1.to_der)
           else
-            asn1
+            tmp_asn1
           end
         end
           
@@ -497,8 +494,8 @@ module OpenSSL
                 "Tag class mismatch. Expected: #{tag_class} " +
                 "Got: #{asn1.tag_class}")
             end
-            asn1 = unpack_tagged(asn1, type, options[:tagging])
-            return asn1.value, true
+            tmp_asn1 = unpack_tagged(asn1, type, options[:tagging])
+            return tmp_asn1.value, true
           else
             default = options[:default]
             if default
@@ -801,8 +798,7 @@ module OpenSSL
             default = outer_opts[:default]
                         
             inner_def.each do |deff|
-              options = deff[:options]
-              options[:optional] = true
+              options = deff[:options].merge({ optional: true })
               value, matched = match(asn1, deff[:type], name, options)
               return deff if matched
             end
@@ -812,6 +808,27 @@ module OpenSSL
                 "Mandatory Choice value #{name} not found.")
             end
             nil
+          end
+        end
+      end
+      
+      class UTF8Parser
+        class << self
+          include TypeParser, TemplateUtil
+          
+          def parse(obj, asn1, definition)
+            name = definition[:name]
+            tmp_class = Class.new do
+              attr_accessor :object
+            end
+            tmp = tmp_class.new
+            deff = { type: definition[:type], name: :object, options: definition[:options] }
+            ret = PrimitiveParser.parse(tmp, asn1, deff)
+            return false unless ret
+            return ret unless name
+            utf8 = tmp.object.force_encoding('UTF-8')
+            obj.instance_variable_set("@" + name.to_s, utf8)
+            true
           end
         end
       end
@@ -848,11 +865,18 @@ module OpenSSL
               eigenclass.instance_eval do
                 define_method meth_name do |name=nil, opts={}|
                   attr_accessor name if name
+                  
+                  if type == OpenSSL::ASN1::UTF8String
+                    parser = UTF8Parser
+                  else
+                    parser = PrimitiveParser
+                  end
+                  
                   deff = { type: type, 
                            name: name, 
                            options: opts, 
                            encoder: PrimitiveEncoder,
-                           parser: PrimitiveParser }
+                           parser: parser }
                   cur_def[:inner_def] << deff
                 end
               end
