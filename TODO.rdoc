@@ -15,6 +15,18 @@ if it works, especially tagged data)
 
 * Implict & explicit tagging for asn1_sequence_of && asn1_set_of
 
+* Infinite length for primitives
+
+* Infinite length for constructed values
+
+* Infinite length with explicit tagging
+
+* Infinite length with implicit tagging
+
+* asn1_any with explicit tagging
+
+* asn1_any with infinite length
+
 === String encoders
 
 Introduce encoders that force a certain encoding that is specific to the string type?
@@ -28,12 +40,3 @@ Introduce encoders that force a certain encoding that is specific to the string 
 === Multi-threaded parsing
 
 * Sequences and sets could be parsed using threads from a thread pool to boost performance
-
-=== Invariance of to_asn1 and parse
-
-* Right now, the encoding of a template creates classes with the tagging hints. However,
-this breaks the following workflow: tagged.to_asn1 -> type.parse(asn1)
-The reason is that the parse routines look for the structures that are created by parsing
-from der. In that case tagged instances are represented by a ASN1Data with context-specific
-tagging. The same structures should be created when encoding a template to ASN.1
-This affects :EXPLICIT tagging.

@@ -1,4 +1,15 @@
 === 0.2.0 / 2011-01-30 [emboss]
+* Encoding to ASN.1 produces same output as decoding from DER.
+
+Before this change, to_asn1 encoded explicitly tagged values to
+ASN1 instances that had @tagging set to :EXPLICIT. This is inconsistent
+to what is created by ASN1.decode, where explicitly tagged values
+are wrapped as non-tagged values inside a ASN1Data that has the tag
+set. This caused an inconsistency when trying to parse a value that
+was encoded to ASN1, because the parsing routines expected the format
+of ASN1.decode. Now the encoder encodes also in this format.
+
+=== 0.2.0 / 2011-01-30 [emboss]
 * Template options that are passed on initialization are now only valid 
 for that instance.
 

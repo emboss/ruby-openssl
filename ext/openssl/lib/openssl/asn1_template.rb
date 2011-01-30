@@ -145,21 +145,32 @@ module OpenSSL
       
       module TypeEncoder 
         
-        def type_new(value, type, tag, tagging, tag_class)
+        def type_new(value, type, tag, tagging, tag_class, inf_length=nil)
           unless tag
-            type.new(value)
+            val = type.new(value)
+            val.infinite_length = true if inf_length
+            val
           else
-            tag_class = unless tag_class
-                          if tag
-                            :CONTEXT_SPECIFIC
-                          else
-                            :UNIVERSAL
-                          end
-                        else
-                          tag_class
-                        end
-            type.new(value, tag, tagging, tag_class)
+            tmp_tc = unless tag_class
+              :CONTEXT_SPECIFIC
+            else
+              tag_class
+            end
+            encode_explicit(value, type, tag, tagging, tmp_tc, inf_length)
           end
+        end
+        
+        def encode_explicit(value, type, tag, tagging, tag_class, inf_length)
+          if tagging == :EXPLICIT
+            inner = type.new(value)
+            inner.infinite_length = true if inf_length
+            val = OpenSSL::ASN1::ASN1Data.new([type.new(value)], tag, tag_class)
+            val.infinite_length = true if inf_length
+          else
+            val = type.new(value, tag, tagging, tag_class)
+            val.infinite_length = true if inf_length
+          end
+          val
         end
         
         def value_raise_or_default(value, name, options)
@@ -234,13 +245,8 @@ module OpenSSL
             else
               cons_value = [ type.new(value), OpenSSL::ASN1::EndOfContent.new ]  
             end
-              
-            cons = OpenSSL::ASN1::Constructive.new(cons_value, 
-                                                   tag,
-                                                   tagging,
-                                                   tag_class)
-            cons.infinite_length = true
-            cons
+            
+            type_new(cons_value, OpenSSL::ASN1::Constructive, tag, tagging, tag_class, true)
           end
         end
       end
@@ -270,9 +276,7 @@ module OpenSSL
               
             value << OpenSSL::ASN1::EndOfContent.new if inf_length
               
-            constructed = type_new(value, type, tag, tagging, tag_class)
-            constructed.infinite_length = inf_length if inf_length
-            constructed
+            type_new(value, type, tag, tagging, tag_class, inf_length)
           end
         end
       end
@@ -303,15 +307,55 @@ module OpenSSL
             tagging = options[:tagging]
             tag_class = determine_tag_class(tag, options[:tag_class])
             name = definition[:name]
+            inf_length = options[:infinite_length]
             value = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(value, name, options)
-            return nil if value == nil
-            value.tag = tag || value.tag
-            if value.respond_to?(:tagging)
-              value.tagging = tagging || value.tagging
+            tag = tag || value.tag
+            unless tagging 
+              if value.respond_to?(:tagging)
+                tagging = value.tagging
+              end
             end
-            value.tag_class = tag_class
-            value
+            return nil if value == nil
+            encode_explicit(value, tag, tagging, tag_class, inf_length)
+          end
+          
+          private
+          
+          def encode_explicit(value, tag, tagging, tag_class, inf_length)
+            #Changing value here should be fine, it's only related to this instance,
+            #not the global definition
+            if tagging == :EXPLICIT
+              #try to make inner untagged
+              value.tag = default_tag(value)
+              if value.respond_to?(:tagging)
+                value.tagging = nil
+              end
+              value.tag_class = :UNIVERSAL
+              outer = OpenSSL::ASN1Data.new([value], tag, tag_class)
+              if inf_length && value.respond_to?(:infinite_length=)
+                value.infinite_length = true
+              end
+              outer.infinite_length = true if inf_length
+              outer
+            else
+              value.tag = tag
+              if value.respond_to?(:tagging)
+                value.tagging = tagging
+              end
+              value.tag_class = tag_class
+              value
+            end
+          end
+          
+          def default_tag(value)
+            cls = value.class
+            while cls do
+              tag = OpenSSL::ASN1::CLASS_TAG_MAP[cls]
+              return tag if tag
+            end
+            
+            raise OpenSSL::ASN1::ASN1Error("No universal tag found for class #{value.class}")
           end
         end
       end
@@ -356,9 +400,7 @@ module OpenSSL
                            element.to_asn1 : inner_type.new(element)
               seq_value << elem_value
             end
-            asn1val = type_new(seq_value, type, tag, tagging, tag_class)
-            asn1val.infinite_length = inf_length if inf_length
-            asn1val
+            type_new(seq_value, type, tag, tagging, tag_class, inf_length)
           end
         end
       end
@@ -388,7 +430,7 @@ module OpenSSL
             elsif value.type.superclass == OpenSSL::ASN1::Constructive
               ConstructiveEncoder.to_asn1(value, tmp_def)
             elsif value.type == OpenSSL::ASN1::ASN1Data
-              value.value
+              AnyEncoder.to_asn1(value, tmp_def)
             else
               raise ArgumentError.new("Unsuorted ChoiceValue type #{value.type}")
             end
