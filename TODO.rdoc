@@ -7,8 +7,6 @@
 * Test that ensure that the temporary parse data is not changed (e.g. parse twice, see 
 if it works, especially tagged data)
 
-* Choice with asn1_sequence & asn1_set
-
 * Choice with asn1_any
 
 * Choice with asn1_sequence_of && asn1_set_of

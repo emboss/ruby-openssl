@@ -428,11 +428,11 @@ module OpenSSL
             elsif value.type.superclass == OpenSSL::ASN1::Primitive
               PrimitiveEncoder.to_asn1(value, tmp_def)
             elsif value.type.superclass == OpenSSL::ASN1::Constructive
-              ConstructiveEncoder.to_asn1(value, tmp_def)
+              ConstructiveEncoder.to_asn1(value.value, tmp_def)
             elsif value.type == OpenSSL::ASN1::ASN1Data
               AnyEncoder.to_asn1(value, tmp_def)
             else
-              raise ArgumentError.new("Unsuorted ChoiceValue type #{value.type}")
+              raise ArgumentError.new("Unsupported ChoiceValue type #{value.type}")
             end
           end
           
@@ -816,7 +816,9 @@ module OpenSSL
             elsif choice_val.type.superclass == OpenSSL::ASN1::Primitive
               PrimitiveParser.parse(choice_val, asn1, deff)
             elsif choice_val.type.superclass == OpenSSL::ASN1::Constructive
-              ConstructiveParser.parse(choice_val, asn1, deff)
+              container = create_object(deff[:inner_def])
+              ConstructiveParser.parse(container, asn1, deff)
+              choice_val.value = container
             elsif choice_val.type == OpenSSL::ASN1::ASN1Data
               AnyParser.parse(choice_val, asn1, deff)
             else
@@ -846,6 +848,21 @@ module OpenSSL
             end
             nil
           end
+          
+          def create_object(inner_def)
+            members = Array.new            
+            inner_def.each do |deff|
+              name = deff[:name]
+              members << name if name
+            end
+            tmp_class = Class.new do
+              members.each do |member|
+                attr_accessor member
+              end
+            end
+            tmp_class.new
+          end
+          
         end
       end
       

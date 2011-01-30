@@ -386,6 +386,14 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     check_choice_templates(1, :IMPLICIT)
   end
   
+  def test_choice_asn1_sequence
+    test_choice_cons(:asn1_sequence, OpenSSL::ASN1::Sequence)
+  end
+  
+  def test_choice_asn1_set
+    test_choice_cons(:asn1_set, OpenSSL::ASN1::Set)
+  end
+  
   def test_parse_raw
     template = Class.new do
       include OpenSSL::ASN1::Template
@@ -914,6 +922,56 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(1, seq.value.size)
     int = seq.value.first
     assert_equal(1, int.value)
+  end
+  
+  def test_choice_cons(cons_declare, type)
+    
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      block = Proc.new do
+        asn1_integer :b
+        asn1_integer :c
+      end
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_choice :a do
+          send(cons_declare, &block)
+        end
+      end
+    end
+    
+    seq_class = Class.new do
+      attr_accessor :b
+      attr_accessor :c
+    end
+    seq = seq_class.new
+    seq.b = 5
+    seq.c = 1	
+
+    t = template.new
+    t.a = OpenSSL::ASN1::Template::ChoiceValue.new(type, seq)
+    asn1 = t.to_asn1
+
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    seq = asn1.value.first
+    assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], seq)
+    assert_equal(2, seq.value.size)
+    int1 = seq.value[0]
+    assert_universal(OpenSSL::ASN1::INTEGER, int1)
+    assert_equal(5, int1.value)
+    int2 = seq.value[1]
+    assert_universal(OpenSSL::ASN1::INTEGER, int2)
+    assert_equal(1, int2.value)
+
+    der = asn1.to_der
+    p = template.parse(der)
+    cv = p.a
+    assert_equal(type, cv.type)
+    assert_nil(cv.tag)
+    assert_equal(5, cv.value.b)
+    assert_equal(1, cv.value.c)
   end
   
 end

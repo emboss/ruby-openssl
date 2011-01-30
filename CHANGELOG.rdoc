@@ -1,4 +1,7 @@
 === 0.2.0 / 2011-01-30 [emboss]
+* Support for asn1_choice with nested asn1_sequence and asn1_set
+
+=== 0.2.0 / 2011-01-30 [emboss]
 * Encoding to ASN.1 produces same output as decoding from DER.
 
 Before this change, to_asn1 encoded explicitly tagged values to
