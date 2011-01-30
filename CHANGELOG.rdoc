@@ -1,5 +1,9 @@
-=== 0.2.0 / 2011-01-27 [emboss]
-Added further tests for choices and fixed bugs.
+=== 0.2.0 / 2011-01-30 [emboss]
+* Template options that are passed on initialization are now only valid 
+for that instance.
+
+=== 0.2.0 / 2011-01-29 [emboss]
+* Added further tests for choices and fixed bugs.
 
 === 0.2.0 / 2011-01-27 [emboss]
 * Adapted template to include fix for GetBNPtr(VALUE obj).

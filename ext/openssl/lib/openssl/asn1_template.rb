@@ -31,8 +31,7 @@ module OpenSSL
         base.extend TemplateMethods
         tmp_self = self
         base.define_singleton_method :parse do |asn1, options={}|
-          definition = @_definition
-          definition[:options] = options
+          definition = @_definition.merge({ options: options })
           
           unless asn1 || options[:optional]
             raise OpenSSL::ASN1::ASN1Error.new(
@@ -58,9 +57,8 @@ module OpenSSL
         unless options.is_a?(Hash)
           parse_raw(options)
         else
-          @_options = options
-          definition = self.class.instance_variable_get(:@_definition)
-          definition[:options] = options
+          @options = options
+          definition = self.class.instance_variable_get(:@_definition).merge({ options: options })
           init_mandatory_templates(definition)
         end
       end
@@ -71,7 +69,7 @@ module OpenSSL
       end
 
       def to_asn1
-        definition = self.class.instance_variable_get(:@_definition)
+        definition = self.class.instance_variable_get(:@_definition).merge({ options: @options })
         Encoder.to_asn1_obj(self, definition)
       end
       

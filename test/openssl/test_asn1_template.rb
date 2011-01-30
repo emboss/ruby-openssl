@@ -446,6 +446,50 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_nil(c.a.a)
   end
   
+  def test_instance_options_are_temporary
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a
+      end
+    end
+    
+    t = template.new({ tag: 0, tagging: :IMPLICIT })
+    t.a = 1
+    asn1 = t.to_asn1
+    assert_tagged(0, :IMPLICIT, asn1)
+    assert_equal(1, asn1.value.size)
+    
+    t2 = template.new
+    t2.a = 1
+    asn2 = t2.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn2)
+    assert_equal(1, asn2.value.size)
+  end
+  
+  def test_encode_decode_invariance
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_sequence({ tag: 0, tagging: :EXPLICIT }) do
+          asn1_integer :a, { tag: 1, tagging: :EXPLICIT }
+        end
+      end
+    end
+    
+    t = template.new
+    t.a = 1
+    asn1 = t.to_asn1
+    der = asn1.to_der
+    
+    p = template.parse(der)
+    p2 = template.parse(asn1)
+    
+    assert_equal(p.to_der, p2.to_der)
+  end
+  
   private
   
   def assert_universal(tag, asn1)
