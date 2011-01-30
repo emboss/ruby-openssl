@@ -177,6 +177,10 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     check_asn1_constructive_of_primitive(:asn1_set_of, OpenSSL::ASN1::SET)
   end
   
+  def test_asn1_sequence_of_template
+    flunk #TODO next
+  end
+  
   def test_asn1_any_primitive
     template = Class.new do
       include OpenSSL::ASN1::Template
@@ -540,6 +544,14 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
   
   def test_choice_any_and_primitives2
     check_choice_any_and_primitives(OpenSSL::ASN1::Boolean, OpenSSL::ASN1::Boolean, true)
+  end
+  
+  def test_asn1_choice_sequence_of
+    check_choice_cons_of(:asn1_sequence_of, OpenSSL::ASN1::Sequence)
+  end
+  
+  def test_asn1_choice_set_of
+    check_choice_cons_of(:asn1_set_of, OpenSSL::ASN1::Set)
   end
   
   def test_parse_raw
@@ -1198,6 +1210,53 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
       assert_equal(value, cv.value)
     end
     assert_equal(der, p.to_der)
+  end
+  
+  def check_choice_cons_of(cons_declare, type)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :b
+      end
+    end
+    
+    container = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_choice :a do
+          send(cons_declare, template)
+        end
+      end
+    end
+    
+    t1 = template.new
+    t1.b = 1
+    t2 = template.new
+    t2.b = 2
+    
+    c = container.new
+    c.a = OpenSSL::ASN1::Template::ChoiceValue.new(template, [t1, t2])
+    asn1 = c.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    seq = asn1.value.first
+    assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], seq)
+    assert_equal(2, seq.value.size)
+    seq1 = seq.value[0]
+    assert_universal(OpenSSL::ASN1::SEQUENCE, seq1)
+    assert_equal(1, seq1.value.size)
+    int1 = seq1.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, int1)
+    assert_equal(1, int1.value)
+    seq2 = seq.value[1]
+    assert_universal(OpenSSL::ASN1::SEQUENCE, seq2)
+    assert_equal(1, seq2.value.size)
+    int2 = seq2.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, int2)
+    assert_equal(2, int2.value)
   end
 end
 

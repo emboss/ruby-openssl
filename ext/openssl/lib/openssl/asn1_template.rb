@@ -388,6 +388,7 @@ module OpenSSL
             inf_length = options[:infinite_length]
             value = obj.instance_variable_get("@" + name.to_s)
             value_raise_or_default(value, name, options)
+            
             return nil if value == nil
             seq_value = Array.new
             value.each do |element|
@@ -419,17 +420,12 @@ module OpenSSL
             tmp_def = get_definition(value, definition[:inner_def])
             tmp_def[:name] = :value
             tmp_def[:options][:infinite_length] = options[:infinite_length]
-            if value.type.include? Template
-              TemplateEncoder.to_asn1(value, tmp_def)
-            elsif value.type.superclass == OpenSSL::ASN1::Primitive
-              PrimitiveEncoder.to_asn1(value, tmp_def)
-            elsif value.type.superclass == OpenSSL::ASN1::Constructive
-              ConstructiveEncoder.to_asn1(value.value, tmp_def)
-            elsif value.type == OpenSSL::ASN1::ASN1Data
-              AnyEncoder.to_asn1(value, tmp_def)
+            if value.type.superclass == OpenSSL::ASN1::Constructive
+              tmp_val = value.value #values to be encoded are in a helper object
             else
-              raise ArgumentError.new("Unsupported ChoiceValue type #{value.type}")
+              tmp_val = value
             end
+            tmp_def[:encoder].to_asn1(tmp_val, tmp_def)
           end
           
           private

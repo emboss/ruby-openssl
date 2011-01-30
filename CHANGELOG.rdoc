@@ -1,4 +1,8 @@
 === 0.2.0 / 2011-01-30 [emboss]
+* Added tests
+* Simplified ChoiceEncoder
+
+=== 0.2.0 / 2011-01-30 [emboss]
 * Bug fixes
 * Removed tag_class option
 * Added tests
