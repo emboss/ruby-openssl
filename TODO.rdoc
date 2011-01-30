@@ -6,9 +6,6 @@
 
 * Tests for default
 
-* Test that ensure that the temporary parse data is not changed (e.g. parse twice, see 
-if it works, especially tagged data)
-
 * Choice with asn1_sequence_of && asn1_set_of
 
 * Implict & explicit tagging for asn1_sequence_of && asn1_set_of

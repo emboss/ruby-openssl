@@ -298,7 +298,6 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     int = p.a.value.first
     assert_universal(OpenSSL::ASN1::INTEGER, int)
     assert_equal(1, int.value)
-    pp p.to_asn1
     assert_equal(der, p.to_der)
   end
   
@@ -715,6 +714,42 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     p2 = template.parse(asn1)
     
     assert_equal(p.to_der, p2.to_der)
+  end
+  
+  def test_parse_twice
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a, { optional: true }
+        asn1_choice :b do
+          asn1_integer nil, { tag: 0, tagging: :EXPLICIT }
+        end
+        asn1_sequence({ tag: 1, tagging: :EXPLICIT }) do
+          asn1_integer :c, { tag: 2, tagging: :EXPLICIT }
+        end
+      end
+    end
+    
+    t = template.new
+    t.b = OpenSSL::ASN1::Template::ChoiceValue.new(OpenSSL::ASN1::Integer, 1, 0)
+    t.c = 2
+    t.to_asn1
+    asn1 = t.to_asn1
+    
+    template.parse(asn1)
+    template.parse(asn1.to_der)
+    der = t.to_der
+    p = template.parse(der)
+    assert_nil(p.a)
+    cv = p.b
+    assert_equal(OpenSSL::ASN1::Integer, cv.type)
+    assert_equal(0, cv.tag)
+    assert_equal(1, cv.value)
+    assert_equal(2, t.c)
+    p.to_asn1
+    p.to_der
+    assert_equal(der, p.to_der)
   end
   
   private
