@@ -4,10 +4,10 @@
 
 === Tests 
 
+* Tests for default
+
 * Test that ensure that the temporary parse data is not changed (e.g. parse twice, see 
 if it works, especially tagged data)
-
-* Choice with asn1_any
 
 * Choice with asn1_sequence_of && asn1_set_of
 
@@ -20,8 +20,6 @@ if it works, especially tagged data)
 * Infinite length with explicit tagging
 
 * Infinite length with implicit tagging
-
-* asn1_any with explicit tagging
 
 * asn1_any with infinite length
 

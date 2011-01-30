@@ -1,4 +1,9 @@
 === 0.2.0 / 2011-01-30 [emboss]
+* Bug fixes
+* Removed tag_class option
+* Added tests
+
+=== 0.2.0 / 2011-01-30 [emboss]
 * Support for asn1_choice with nested asn1_sequence and asn1_set
 
 === 0.2.0 / 2011-01-30 [emboss]

@@ -23,7 +23,7 @@ module OpenSSL
     #includes this module.
     #available options { optional: false, tag: nil, 
     #                    tagging: nil, infinite_length: false,
-    #                    tag_class: nil, default: nil }
+    #                    default: nil }
     #definition {type, name, inner_def, options, parser, encoder}
     module Template
       
@@ -100,9 +100,7 @@ module OpenSSL
       
       module TemplateUtil
         
-        def determine_tag_class(tag, tag_class)
-          return tag_class if tag_class
-          
+        def determine_tag_class(tag)
           if tag
             :CONTEXT_SPECIFIC
           else
@@ -145,18 +143,14 @@ module OpenSSL
       
       module TypeEncoder 
         
-        def type_new(value, type, tag, tagging, tag_class, inf_length=nil)
+        def type_new(value, type, tag, tagging, inf_length=nil)
           unless tag
             val = type.new(value)
             val.infinite_length = true if inf_length
             val
           else
-            tmp_tc = unless tag_class
-              :CONTEXT_SPECIFIC
-            else
-              tag_class
-            end
-            encode_explicit(value, type, tag, tagging, tmp_tc, inf_length)
+            tag_class = determine_tag_class(tag)
+            encode_explicit(value, type, tag, tagging, tag_class, inf_length)
           end
         end
         
@@ -204,18 +198,17 @@ module OpenSSL
             type = definition[:type] 
             tag = options[:tag]
             tagging = options[:tagging]
-            tag_class = options[:tag_class]
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             
             if type == OpenSSL::ASN1::Null
               return nil if options[:optional]
-              return type_new(nil, type, tag, tagging, tag_class)
+              return type_new(nil, type, tag, tagging)
             end
             
             value = value_raise_or_default(val, name, options) 
             return nil if value == nil
-            type_new(value, type, tag, tagging, tag_class)
+            type_new(value, type, tag, tagging)
           end
         end
       end
@@ -229,7 +222,6 @@ module OpenSSL
             type = definition[:type] 
             tag = default_tag_of_type(type)
             tagging = options[:tagging]
-            tag_class = determine_tag_class(tag, options[:tag_class])
             name = definition[:name]
             val = obj.instance_variable_get("@" + name.to_s)
             value = value_raise_or_default(val, name, options)
@@ -246,7 +238,7 @@ module OpenSSL
               cons_value = [ type.new(value), OpenSSL::ASN1::EndOfContent.new ]  
             end
             
-            type_new(cons_value, OpenSSL::ASN1::Constructive, tag, tagging, tag_class, true)
+            type_new(cons_value, OpenSSL::ASN1::Constructive, tag, tagging, true)
           end
         end
       end
@@ -262,7 +254,6 @@ module OpenSSL
             inf_length = options[:infinite_length]
             tag = options[:tag]
             tagging = options[:tagging]
-            tag_class = options[:tag_class]
             value = Array.new
             
             inner_def.each do |element|
@@ -276,7 +267,7 @@ module OpenSSL
               
             value << OpenSSL::ASN1::EndOfContent.new if inf_length
               
-            type_new(value, type, tag, tagging, tag_class, inf_length)
+            type_new(value, type, tag, tagging, inf_length)
           end
         end
       end
@@ -304,8 +295,8 @@ module OpenSSL
           def to_asn1(obj, definition)
             options = definition[:options]
             tag = options[:tag]
+            tag_class = determine_tag_class(tag)
             tagging = options[:tagging]
-            tag_class = determine_tag_class(tag, options[:tag_class])
             name = definition[:name]
             inf_length = options[:infinite_length]
             value = obj.instance_variable_get("@" + name.to_s)
@@ -326,13 +317,17 @@ module OpenSSL
             #Changing value here should be fine, it's only related to this instance,
             #not the global definition
             if tagging == :EXPLICIT
+              if value.class == OpenSSL::ASN1::ASN1Data #asn1_any, already wrapped
+                return value
+              end
+              
               #try to make inner untagged
               value.tag = default_tag(value)
               if value.respond_to?(:tagging)
                 value.tagging = nil
               end
               value.tag_class = :UNIVERSAL
-              outer = OpenSSL::ASN1Data.new([value], tag, tag_class)
+              outer = OpenSSL::ASN1::ASN1Data.new([value], tag, tag_class)
               if inf_length && value.respond_to?(:infinite_length=)
                 value.infinite_length = true
               end
@@ -350,12 +345,14 @@ module OpenSSL
           
           def default_tag(value)
             cls = value.class
+            
             while cls do
               tag = OpenSSL::ASN1::CLASS_TAG_MAP[cls]
               return tag if tag
+              cls = cls.superclass
             end
             
-            raise OpenSSL::ASN1::ASN1Error("No universal tag found for class #{value.class}")
+            raise OpenSSL::ASN1::ASN1Error.new("No universal tag found for class #{value.class}")
           end
         end
       end
@@ -388,7 +385,6 @@ module OpenSSL
             inner_type = definition[:type]
             tag = options[:tag]
             tagging = options[:tagging]
-            tag_class = options[:tag_class]
             inf_length = options[:infinite_length]
             value = obj.instance_variable_get("@" + name.to_s)
             value_raise_or_default(value, name, options)
@@ -400,7 +396,7 @@ module OpenSSL
                            element.to_asn1 : inner_type.new(element)
               seq_value << elem_value
             end
-            type_new(seq_value, type, tag, tagging, tag_class, inf_length)
+            type_new(seq_value, type, tag, tagging, inf_length)
           end
         end
       end
@@ -440,8 +436,7 @@ module OpenSSL
           
           def get_definition(choice_val, inner_def)
             inner_def.each do |deff|
-              if choice_val.type == deff[:type] && 
-                 choice_val.tag == deff[:options][:tag]
+              if choice_val.type == deff[:type] && choice_val.tag == deff[:options][:tag]
                 return deff.merge({})
               end
             end
@@ -455,7 +450,7 @@ module OpenSSL
       #OpenSSL::ASN1::ASN1Data from the definition that
       #is passed, and possible the instance variable
       #that can be retrieved from definition[:name]
-      #Tags, tagging, tag_class and infinite_length
+      #Tags, tagging and infinite_length
       #must be set according to the values in the 
       #definition. Finally the to_asn1 method must
       #return the ASN1Data value. If the corresponding
@@ -528,7 +523,7 @@ module OpenSSL
           tag = options[:tag]
           real_tag = tag_or_default(tag, type)
           if asn1.tag == real_tag
-            tag_class = determine_tag_class(tag, options[:tag_class])
+            tag_class = determine_tag_class(tag)
             unless asn1.tag_class == tag_class
               raise OpenSSL::ASN1::ASN1Error.new(
                 "Tag class mismatch. Expected: #{tag_class} " +
@@ -835,11 +830,29 @@ module OpenSSL
             inner_def = definition[:inner_def]
             outer_opts = definition[:options]
             default = outer_opts[:default]
-                        
+            any_defs = Array.new
+            
             inner_def.each do |deff|
               options = deff[:options].merge({ optional: true })
-              value, matched = match(asn1, deff[:type], name, options)
-              return deff if matched
+              if deff[:type] == OpenSSL::ASN1::ASN1Data #asn1_any
+                any_defs << deff
+                next
+              else
+                value, matched = match(asn1, deff[:type], name, options)
+                return deff if matched
+              end
+            end
+            
+            #any fallback
+            unless any_defs.empty?
+              any_defs.each do |any_def|  
+                tag = any_def[:options][:tag]
+                if tag
+                  return any_def if asn1.tag == tag
+                else
+                  return any_def
+                end
+              end
             end
             
             unless outer_opts[:optional] || default
@@ -972,7 +985,8 @@ module OpenSSL
             
             define_method :asn1_any do |name=nil, opts={}|
               attr_accessor name if name
-              deff = { name: name, 
+              deff = { type: OpenSSL::ASN1::ASN1Data,
+                       name: name, 
                        options: opts, 
                        encoder: AnyEncoder,
                        parser: AnyParser }
