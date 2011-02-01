@@ -1,5 +1,10 @@
 == OpenSSL::ASN1::Template
 
+=== asn1_utf8_string
+
+make this a separate method instead of the ugly if type == ... in
+declare_prim or supply optionally parser and decoder to declare_prim
+
 === asn1_sequence_of_choice, asn1_set_of_choice 
 
 Either provide the DSL methods or allow to declare a template as a choice
