@@ -153,20 +153,20 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     check_cons_nested(:asn1_set, OpenSSL::ASN1::SET)
   end
   
-  def test_asn1_sequence_implicit_tagged
-    check_cons_tagged_implicit(:asn1_sequence, OpenSSL::ASN1::Sequence)
+  def test_asn1_sequence_tagged_implicit
+    check_cons_tagged(:asn1_sequence, OpenSSL::ASN1::Sequence, :IMPLICIT)
   end
   
-  def test_asn1_set_implicit_tagged
-    check_cons_tagged_implicit(:asn1_set, OpenSSL::ASN1::Set)
+  def test_asn1_set_tagged_implicit
+    check_cons_tagged(:asn1_set, OpenSSL::ASN1::Set, :IMPLICIT)
   end
   
-  def test_asn1_sequence_explicit_tagged
-    check_cons_tagged_explicit(:asn1_sequence, OpenSSL::ASN1::Sequence)
+  def test_asn1_sequence_tagged_explicit
+    check_cons_tagged(:asn1_sequence, OpenSSL::ASN1::Sequence, :EXPLICIT)
   end
   
-  def test_asn1_set_explicit_tagged
-    check_cons_tagged_explicit(:asn1_set, OpenSSL::ASN1::Set)
+  def test_asn1_set_tagged_explicit
+    check_cons_tagged(:asn1_set, OpenSSL::ASN1::Set, :EXPLICIT)
   end
   
   def test_asn1_sequence_of_primitive
@@ -178,7 +178,73 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
   end
   
   def test_asn1_sequence_of_template
-    flunk #TODO next
+    check_constructive_of_template(:asn1_sequence_of, OpenSSL::ASN1::Sequence)    
+  end
+  
+  def test_asn1_set_of_template
+    check_constructive_of_template(:asn1_set_of, OpenSSL::ASN1::Set)    
+  end
+  
+  def test_asn1_sequence_of_tagged_implicit_primitive
+    check_constructive_of_tagged_primitive(:asn1_sequence_of, OpenSSL::ASN1::Sequence, :IMPLICIT)
+  end
+  
+  def test_asn1_set_of_tagged_implicit_primitive
+    check_constructive_of_tagged_primitive(:asn1_set_of, OpenSSL::ASN1::Set, :IMPLICIT)
+  end
+  
+  def test_asn1_sequence_of_tagged_explicit_primitive
+    check_constructive_of_tagged_primitive(:asn1_sequence_of, OpenSSL::ASN1::Sequence, :EXPLICIT)
+  end
+  
+  def test_asn1_set_of_tagged_explicit_primitive
+    check_constructive_of_tagged_primitive(:asn1_set_of, OpenSSL::ASN1::Set, :EXPLICIT)
+  end
+  
+  def test_asn1_sequence_of_tagged_implicit_template
+    check_constructive_of_tagged_template(:asn1_sequence_of, OpenSSL::ASN1::Sequence, :IMPLICIT)
+  end
+  
+  def test_asn1_set_of_tagged_implicit_template
+    check_constructive_of_tagged_template(:asn1_set_of, OpenSSL::ASN1::Set, :IMPLICIT)
+  end
+  
+  def test_asn1_sequence_of_tagged_explicit_template
+    check_constructive_of_tagged_template(:asn1_sequence_of, OpenSSL::ASN1::Sequence, :EXPLICIT)
+  end
+  
+  def test_asn1_set_of_tagged_explicit_template
+    check_constructive_of_tagged_template(:asn1_set_of, OpenSSL::ASN1::Set, :EXPLICIT)
+  end
+  
+  def check_cons(cons_declare, type)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      proc = proc { asn1_integer :a }
+      
+      asn1_declare type do
+        send(cons_declare, &proc)
+      end
+    end
+    
+    t = template.new
+    t.a = 1
+    asn1 = t.to_asn1
+    assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], asn1)
+    assert_equal(1, asn1.value.size)
+    asn1set = asn1.value.first
+    assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], asn1set)
+    assert_equal(1, asn1.value.size)
+    asn1int = asn1set.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, asn1int)
+    assert_equal(1, asn1int.value)
+    
+    der = asn1.to_der
+    p = template.parse(OpenSSL::ASN1.decode(der))
+    
+    assert_equal(1, p.a)
+    assert_equal(der, p.to_der)
   end
   
   def test_asn1_any_primitive
@@ -838,6 +904,148 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
   
+  def check_constructive_of_template(cons_declare, type)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a
+      end
+    end
+    
+    container = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        send(cons_declare, template, :a)
+      end
+    end
+    
+    t0 = template.new
+    t0.a = 1
+    t1 = template.new
+    t1.a = 2
+    c = container.new
+    c.a = [ t0, t1 ]
+    
+    asn1 = c.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    seq = asn1.value.first
+    assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], seq)
+    assert_equal(2, seq.value.size)
+    i = 1
+    seq.value.each do |templ|
+      assert_universal(OpenSSL::ASN1::SEQUENCE, templ)
+      assert_equal(1, templ.value.size)
+      int = templ.value.first
+      assert_universal(OpenSSL::ASN1::INTEGER, int)
+      assert_equal(i, int.value)
+      i += 1
+    end
+    
+    der = asn1.to_der
+    p = container.parse(der)
+    
+    assert_equal(2, p.a.size)
+    assert_equal(1, p.a[0].a)
+    assert_equal(2, p.a[1].a)
+    assert_equal(der, p.to_der)
+  end
+  
+  def check_constructive_of_tagged_primitive(cons_declare, type, tagging)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        send(cons_declare, OpenSSL::ASN1::Integer, :a, { tag: 0, tagging: tagging })
+      end
+    end
+    
+    t = template.new
+    t.a = [ 0, 1 ]
+    
+    asn1 = t.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    wrap = asn1.value.first
+    assert_tagged(0, tagging, wrap)
+    
+    if tagging == :IMPLICIT
+      seq = wrap
+    else
+      assert_equal(1, wrap.value.size)
+      seq = wrap.value.first
+      assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], seq)
+    end
+    
+    assert_equal(2, seq.value.size)
+    i = 0
+    seq.value.each do |int|
+      assert_universal(OpenSSL::ASN1::INTEGER, int)
+      assert_equal(i, int.value)
+      i += 1
+    end
+  end
+  
+  def check_constructive_of_tagged_template(cons_declare, type, tagging)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a
+      end
+    end
+    
+    container = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        send(cons_declare, template, :a, { tag: 0, tagging: tagging })
+      end
+    end
+    
+    t0 = template.new
+    t0.a = 1
+    t1 = template.new
+    t1.a = 2
+    c = container.new
+    c.a = [ t0, t1 ]
+    
+    asn1 = c.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    wrap = asn1.value.first
+    assert_tagged(0, tagging, wrap)
+    
+    if tagging == :IMPLICIT
+      seq = wrap
+    else
+      assert_equal(1, wrap.value.size)
+      seq = wrap.value.first
+      assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], seq)
+    end
+    
+    assert_equal(2, seq.value.size)
+    i = 1
+    seq.value.each do |templ|
+      assert_universal(OpenSSL::ASN1::SEQUENCE, templ)
+      assert_equal(1, templ.value.size)
+      int = templ.value.first
+      assert_universal(OpenSSL::ASN1::INTEGER, int)
+      assert_equal(i, int.value)
+      i += 1
+    end
+    
+    der = asn1.to_der
+    p = container.parse(der)
+    
+    assert_equal(2, p.a.size)
+    assert_equal(1, p.a[0].a)
+    assert_equal(2, p.a[1].a)
+    assert_equal(der, p.to_der)
+  end
+  
   def check_cons(cons_declare, type)
     template = Class.new do
       include OpenSSL::ASN1::Template
@@ -913,14 +1121,14 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
   
-  def check_cons_tagged_implicit(cons_declare, type)
+  def check_cons_tagged(cons_declare, type, tagging)
     template = Class.new do
       include OpenSSL::ASN1::Template
       
       proc = proc { asn1_integer :a }
       
       asn1_declare type do
-        send(cons_declare, { tag: 0, tagging: :IMPLICIT}, &proc)
+        send(cons_declare, { tag: 0, tagging: tagging }, &proc)
       end
     end
     
@@ -929,41 +1137,17 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     asn1 = t.to_asn1
     assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], asn1)
     assert_equal(1, asn1.value.size)
-    asn1seq = asn1.value.first
-    assert_tagged(0, :IMPLICIT, asn1seq)
-    assert_equal(1, asn1seq.value.size)
-    asn1int = asn1seq.value.first
-    assert_universal(OpenSSL::ASN1::INTEGER, asn1int)
-    assert_equal(1, asn1int.value)
+    wrap = asn1.value.first
+    assert_tagged(0, tagging, wrap)
     
-    der = asn1.to_der
-    p = template.parse(OpenSSL::ASN1.decode(der))
-    
-    assert_equal(1, p.a)
-    assert_equal(der, p.to_der)
-  end
-  
-  def check_cons_tagged_explicit(cons_declare, type)
-    template = Class.new do
-      include OpenSSL::ASN1::Template
-      
-      proc = proc { asn1_integer :a }
-      
-      asn1_declare type do
-        send(cons_declare, { tag: 0, tagging: :EXPLICIT}, &proc)
-      end
+    if tagging == :IMPLICIT
+      asn1seq = wrap
+    else
+      assert_equal(1, wrap.value.size)
+      asn1seq = wrap.value.first
+      assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], asn1seq)
     end
     
-    t = template.new
-    t.a = 1
-    asn1 = t.to_asn1
-    assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], asn1)
-    assert_equal(1, asn1.value.size)
-    asn1data = asn1.value.first
-    assert_tagged(0, :EXPLICIT, asn1data)
-    assert_equal(1, asn1data.value.size)
-    asn1seq = asn1data.value.first
-    assert_universal(OpenSSL::ASN1::CLASS_TAG_MAP[type], asn1seq)
     assert_equal(1, asn1seq.value.size)
     asn1int = asn1seq.value.first
     assert_universal(OpenSSL::ASN1::INTEGER, asn1int)

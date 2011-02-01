@@ -1,14 +1,17 @@
 == OpenSSL::ASN1::Template
 
-=== sequence_of_choice, set_of_choice
+=== asn1_sequence_of_choice, asn1_set_of_choice 
+
+Either provide the DSL methods or allow to declare a template as a choice
+via asn1_declare_choice. If the latter is implemented, the prior methods
+could be provided by creating a temporary choice type that is attached to
+the ordinary asn1_sequence_of and asn1_set_of. the *of_choice methods might
+come in handy in situations where the namespace should not be polluted by 
+being forced to create a template for an otherwise useless ASN.1 construct.
 
 === Tests 
 
 * Tests for default
-
-* asn1_sequence_of/asn1_set_of with template types
-
-* Implict & explicit tagging for asn1_sequence_of && asn1_set_of
 
 * Infinite length for primitives
 
