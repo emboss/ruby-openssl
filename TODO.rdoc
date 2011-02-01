@@ -9,9 +9,34 @@ the ordinary asn1_sequence_of and asn1_set_of. the *of_choice methods might
 come in handy in situations where the namespace should not be polluted by 
 being forced to create a template for an otherwise useless ASN.1 construct.
 
+=== Infinite length
+
+* convert infinite length primitives to a single primitive
+* infinite length should only be a hint for encoding, primitive values should always
+  be converted to a single distinct value (instead of an array)
+* TBD: infinite_length should not be a static choice that is set within a template's
+  definition, it should be rather decided on a per-instance basis whether certain
+  values are to be encoded as infinite length or not. This could be handled by monkey-
+  patching the parsed values with instance variables. One would be a flag, that determines
+  if infinite length shall be applied or not, another one determines the chunk sizes for 
+  primitive encodings. On encoding such a template instance, the opportunity to declare 
+  which elements should be encoded as infinite length values (and possibly also
+  the chunk sizes) should exist (function parameter, separate function, block?)
+* the above points imply removing the infinite_length option from the template definition
+
+=== Multi-threaded parsing
+
+* Sequences and sets could be parsed using threads from a thread pool to boost performance
+
 === Tests 
 
-* Tests for default
+* Tests for default of primitives
+
+* Tests for default of asn1_any
+
+* Tests for default of asn1_sequence_of, asn1_set_of
+
+* Test scenarios for "optional"
 
 * Infinite length for primitives
 
@@ -27,12 +52,4 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 
 Introduce encoders that force a certain encoding that is specific to the string type?
 
-=== Infinite length
 
-* convert infinite length primitives to a single primitive if not expected from definition
-* infinite length should only be a hint for encoding, primtive values should always
-  be parsed and in constructed case converted to a single distinct value
-
-=== Multi-threaded parsing
-
-* Sequences and sets could be parsed using threads from a thread pool to boost performance
