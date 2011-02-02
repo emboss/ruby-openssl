@@ -2,23 +2,41 @@
 
 A development repository for the Ruby standard library "ext/openssl".
 You will find new and experimental features that are not yet available 
-in the official distribution. Features will eventually be merged with
+in the official distribution. Features could eventually be merged with
 main Ruby development once they are stable. Stable features will also
 be published as a {gem}[https://github.com/emboss/openssl-ext] to make
-them readily available.  
+them readily available. The master branch is meant to stay in sync with
+the official repo. The main development branch is dev, so if you'd like
+to try out the new features directly, feel free to build "ext/openssl"
+from this branch.
 
 == Requirements
 
-To use the library you should use the latest Ruby version and make sure
-that you are running Ruby with an OpenSSL version >= 1.0.0. You should
-also ensure that your Ruby installation was built with '--enable-shared'.
+To use the library you should use the latest Ruby version (at least 1.9.2)
+and make sure that you are running Ruby with an OpenSSL version >= 1.0.0. 
+You should also ensure that your Ruby installation was built with 
+'--enable-shared'.
 
 == Installation
 
+=== Note 
+
+This is not meant as a conveniently-to-install package. It's rather a
+constantly evolving repository where over time stable bits and pieces
+will emerge that could eventually find their way into core Ruby's 
+"ext/openssl" library. If you are looking for a stable, easy-to-install, 
+ready-to-use version of the features developed here, you should have a 
+look at the {gem}[https://github.com/emboss/openssl-ext] version.
+
+=== But I really want to try it
+
+Well, then this would be a quick 'n dirty solution to get the code up and
+running on your machine.
 Simply download the sources, unpack them in a directory and run 
 'ruby extconf.rb'. Then run 'make' and replace the library openssl.so 
-(or .dll or .dynlib) in <RUBY_HOME>/lib/ruby/1.9.1/i686-linux (it's the 
-directory for native libraries, may deviate for your particular installation).
+(or whatever extension libraries have on your system) in 
+<RUBY_HOME>/lib/ruby/1.9.1/i686-linux (it's the directory for native libraries,
+may deviate for your particular installation).
 Next, you need to replace the openssl.rb in <RUBY_HOME>/lib/ruby/1.9.1 by
 the one found under ext/openssl/lib in the sources. The final step is to 
 replace the entire folder <RUBY_HOME>/lib/ruby/1.9.1/openssl by the folder
