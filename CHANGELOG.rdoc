@@ -1,3 +1,7 @@
+=== 0.2.0 / 2011-02-02 [emboss]
+* Added further tests for Template
+* Fixed bug for non-matching templates
+
 === 0.2.0 / 2011-02-01 [emboss]
 * Added further tests for Template
 * Fixed bug for check_size_cons on parsing 

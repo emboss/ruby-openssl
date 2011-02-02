@@ -30,7 +30,7 @@ module OpenSSL
       def self.included(base)
         base.extend TemplateMethods
         tmp_self = self
-        base.define_singleton_method :parse do |asn1, options={}|
+        base.define_singleton_method :parse do |asn1, options={}, return_nil=false|
           definition = @_definition.merge({ options: options })
           
           unless asn1 || options[:optional]
@@ -48,8 +48,16 @@ module OpenSSL
             obj = base.new(options)  
           end
           
-          Parser.parse_recursive(obj, asn1, definition)
-          obj
+          unless Parser.parse_recursive(obj, asn1, definition)
+            unless return_nil
+              raise OpenSSL::ASN1::ASN1Error.new("Could not match
+                type #{definition[:type]}")
+            else
+              nil
+            end
+          else
+            obj
+          end
         end
       end
       
@@ -91,7 +99,8 @@ module OpenSSL
         else
           type = definition[:type]
           options = definition[:options]
-          if type && type.include?(Template) && !options[:optional]
+          mandatory = !(options[:optional] || options[:default])
+          if type && type.include?(Template) && mandatory
             instance = type.new(options)
             instance_variable_set("@" + definition[:name].to_s, instance)
           end
@@ -256,6 +265,10 @@ module OpenSSL
             tagging = options[:tagging]
             value = Array.new
             
+            if options[:optional]
+              return nil if no_inner_vars_set?(inner_def, obj)
+            end
+            
             inner_def.each do |element|
               inner_obj = Encoder.to_asn1_obj(obj, element)
               value << inner_obj if inner_obj
@@ -269,6 +282,16 @@ module OpenSSL
               
             type_new(value, type, tag, tagging, inf_length)
           end
+          
+          def no_inner_vars_set?(inner_def, obj)
+            one_set = false
+            inner_def.each do |deff|
+              iv = obj.instance_variable_get("@" + deff[:name].to_s)
+              one_set = true unless iv == nil
+            end
+            !one_set
+          end
+          
         end
       end
       
@@ -280,7 +303,7 @@ module OpenSSL
             options = definition[:options]
             name = definition[:name]
             value = obj.instance_variable_get("@" + name.to_s)
-            value_raise_or_default(value, name, options)
+            value = value_raise_or_default(value, name, options)
             return nil if value == nil
             val_def = value.class.instance_variable_get(:@_definition).merge({ options: options })
             Encoder.to_asn1_obj(value, val_def)
@@ -678,7 +701,10 @@ module OpenSSL
           
           def parse(obj, asn1, definition)
             name = definition[:name]
-            instance = definition[:type].parse(asn1, definition[:options])
+            
+            instance = definition[:type].parse(asn1, definition[:options], true)
+            return false unless instance
+            
             if name
               obj.instance_variable_set("@" + name.to_s, instance)
             end
