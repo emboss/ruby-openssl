@@ -620,6 +620,110 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     check_choice_cons_of(:asn1_set_of, OpenSSL::ASN1::Set)
   end
   
+  def test_default_primitive_encode
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a, { default: 1 }
+      end
+    end
+    
+    t = template.new
+    asn1 = t.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    int = asn1.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(1, int.value)
+    
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(1, p.a)
+    assert_equal(der, p.to_der)
+  end
+  
+  def test_default_primitive_parse
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_object_id :a
+        asn1_integer :b, { default: 1 }
+        asn1_ia5_string :c, { optional: true }
+      end
+    end
+    
+    helper = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_object_id :a
+        asn1_ia5_string :c, { optional: true }
+      end
+    end
+    
+    h = helper.new
+    h.a = "1.2.3.4.5"
+    asn1 = h.to_asn1
+    
+    p = template.parse(asn1.to_der)
+    assert_nil(p.c)
+    assert_equal(1, p.b)
+    assert_equal("1.2.3.4.5", p.a)
+    
+    h = helper.new
+    h.a = "1.2.3.4.5"
+    h.c = "a"
+    asn1 = h.to_asn1
+    
+    p = template.parse(asn1.to_der)
+    assert_equal("a", p.c)
+    assert_equal(1, p.b)
+    assert_equal("1.2.3.4.5", p.a)
+  end
+  
+  def test_default_primitive_parse_at_end
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_object_id :a
+        asn1_ia5_string :b, { optional: true }
+        asn1_integer :c, { default: 1 }
+      end
+    end
+    
+    helper = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_object_id :a
+        asn1_ia5_string :b, { optional: true }
+      end
+    end
+    
+    h = helper.new
+    h.a = "1.2.3.4.5"
+    asn1 = h.to_asn1
+    
+    p = template.parse(asn1.to_der)
+    assert_nil(p.b)
+    assert_equal(1, p.c)
+    assert_equal("1.2.3.4.5", p.a)
+    
+    h = helper.new
+    h.a = "1.2.3.4.5"
+    h.b = "a"
+    asn1 = h.to_asn1
+    
+    p = template.parse(asn1.to_der)
+    assert_equal("a", p.b)
+    assert_equal(1, p.c)
+    assert_equal("1.2.3.4.5", p.a)
+  end
+  
   def test_parse_raw
     template = Class.new do
       include OpenSSL::ASN1::Template
@@ -699,6 +803,160 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     
     assert_nil(t.a)
     assert_equal("b", t.b)
+  end
+  
+  def test_default_between_optionals
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_printable_string :a, { optional: true }
+        asn1_integer :b, { default: 1 }
+        asn1_octet_string :c, { optional: true }
+      end
+    end
+    
+    t = template.new
+    asn1 = t.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    int = asn1.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(1, int.value)
+    
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(1, p.b)
+    assert_nil(p.a)
+    assert_nil(p.c)
+    assert_equal(der, p.to_der)
+  end
+  
+  def test_default_optional_in_front
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_printable_string :a, { optional: true }
+        asn1_integer :b, { default: 1 }
+        asn1_octet_string :c
+      end
+    end
+    
+    t = template.new
+    t.c = "\x01"
+    asn1 = t.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(2, asn1.value.size)
+    int = asn1.value[0]
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(1, int.value)
+    oct = asn1.value[1]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct)
+    assert_equal("\x01", oct.value)
+    
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(1, p.b)
+    assert_nil(p.a)
+    assert_equal("\x01", p.c)
+    assert_equal(der, p.to_der)
+  end
+  
+  def test_default_optional_after
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_printable_string :a
+        asn1_integer :b, { default: 1 }
+        asn1_octet_string :c, { optional: true }
+      end
+    end
+    
+    t = template.new
+    t.a = "a"
+    asn1 = t.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(2, asn1.value.size)
+    str = asn1.value[0]
+    assert_universal(OpenSSL::ASN1::PRINTABLESTRING, str)
+    assert_equal("a", str.value)
+    int = asn1.value[1]
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(1, int.value)
+    
+    
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(1, p.b)
+    assert_equal("a", p.a)
+    assert_equal(der, p.to_der)
+  end
+  
+  def test_default_at_beginning
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a, { default: 1 }
+        asn1_printable_string :b
+      end
+    end
+    
+    t = template.new
+    t.b = "b"
+    asn1 = t.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(2, asn1.value.size)
+    int = asn1.value[0]
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(1, int.value)
+    str = asn1.value[1]
+    assert_universal(OpenSSL::ASN1::PRINTABLESTRING, str)
+    assert_equal("b", str.value)
+    
+    
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(1, p.a)
+    assert_equal("b", p.b)
+    assert_equal(der, p.to_der)
+  end
+  
+  def test_default_at_end
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_printable_string :a
+        asn1_integer :b, { default: 1 }
+      end
+    end
+    
+    t = template.new
+    t.a = "a"
+    asn1 = t.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(2, asn1.value.size)
+    str = asn1.value[0]
+    assert_universal(OpenSSL::ASN1::PRINTABLESTRING, str)
+    assert_equal("a", str.value)
+    int = asn1.value[1]
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(1, int.value)
+    
+    
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(1, p.b)
+    assert_equal("a", p.a)
+    assert_equal(der, p.to_der)
   end
   
   def test_ignore_value_on_parsing

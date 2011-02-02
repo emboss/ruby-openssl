@@ -510,7 +510,8 @@ module OpenSSL
         def min_size(inner_def)
           min_size = 0
           inner_def.each do |definition|
-            min_size += 1 unless definition[:options][:optional]
+            options = definition[:options]
+            min_size += 1 unless options[:optional] || options[:default] != nil
           end
           min_size
         end
@@ -924,21 +925,18 @@ module OpenSSL
           eigenclass = class << self; self; end
           eigenclass.instance_eval do
             
-            define_method :declare_prim do |meth_name, type|
+            define_method :declare_prim do |meth_name, 
+                                            type, 
+                                            parser=PrimitiveParser, 
+                                            encoder=PrimitiveEncoder|
               eigenclass.instance_eval do
                 define_method meth_name do |name=nil, opts={}|
                   attr_accessor name if name
                   
-                  if type == OpenSSL::ASN1::UTF8String
-                    parser = UTF8Parser
-                  else
-                    parser = PrimitiveParser
-                  end
-                  
                   deff = { type: type, 
                            name: name, 
                            options: opts, 
-                           encoder: PrimitiveEncoder,
+                           encoder: encoder,
                            parser: parser }
                   cur_def[:inner_def] << deff
                 end
@@ -1011,7 +1009,7 @@ module OpenSSL
           declare_prim(:asn1_null, OpenSSL::ASN1::Null)
           declare_prim(:asn1_object_id, OpenSSL::ASN1::ObjectId)
           declare_prim(:asn1_enumerated, OpenSSL::ASN1::Enumerated)
-          declare_prim(:asn1_utf8_string, OpenSSL::ASN1::UTF8String)
+          declare_prim(:asn1_utf8_string, OpenSSL::ASN1::UTF8String, UTF8Parser)
           declare_prim(:asn1_numeric_string, OpenSSL::ASN1::NumericString)
           declare_prim(:asn1_printable_string, OpenSSL::ASN1::PrintableString)
           declare_prim(:asn1_t61_string, OpenSSL::ASN1::T61String)
