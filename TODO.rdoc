@@ -28,6 +28,8 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 
 * Sequences and sets could be parsed using threads from a thread pool to boost performance
 
+=== No top-level optional for choices? (Except if they're declared as a separate type)
+
 === Tests 
 
 * Tests for default of asn1_any
@@ -37,6 +39,14 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 * Tests for default with template encoding / parsing
 
 * Test scenarios for "optional"
+
+* Test for optional of constructive, constructive_of and template
+  
+  If the top-level construct is declared optional, parsing and encoding
+  must behave as follows: if the top-level construct (e.g. Sequence) is
+  missing, it must succeed, but if it's there, then the "inner rules"
+  regarding optional must apply, i.e. it must not be that all inner 
+  objects suddenly become optional
 
 * Infinite length for primitives
 
