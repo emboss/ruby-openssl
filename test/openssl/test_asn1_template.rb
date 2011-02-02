@@ -371,6 +371,30 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
   
+  def test_asn1_any_default
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_any :a, { default: OpenSSL::ASN1::Integer.new(1) }
+      end
+    end
+    
+    t = template.new
+    asn1 = t.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    int = asn1.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(1, int.value)
+    
+    p = template.parse(asn1.to_der)
+    aint = p.a
+    assert_universal(OpenSSL::ASN1::INTEGER, aint)
+    assert_equal(1, aint.value)
+  end
+  
   def test_asn1_template
     template = Class.new do
       include OpenSSL::ASN1::Template
@@ -799,6 +823,22 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal("a", p.b)
     assert_equal(1, p.c)
     assert_equal("1.2.3.4.5", p.a)
+  end
+  
+  def test_default_sequence_of
+    check_default_cons_of(:asn1_sequence_of)
+  end
+  
+  def test_default_set_of
+    check_default_cons_of(:asn1_set_of)
+  end
+    
+  def test_default_sequence_of_parse
+    check_default_cons_of_parse(:asn1_sequence_of)
+  end
+  
+  def test_default_set_of_parse
+    check_default_cons_of_parse(:asn1_set_of)
   end
   
   def test_default_template
@@ -1999,6 +2039,57 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_universal(OpenSSL::ASN1::INTEGER, int2)
     assert_equal(2, int2.value)
   end
+  
+  def check_default_cons_of(cons_declare)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        send(cons_declare, OpenSSL::ASN1::Boolean, :a, { default: [true, false] })
+        asn1_integer :b
+      end
+    end
+    
+    t = template.new
+    t.b = 1
+    
+    p = template.parse(t.to_asn1)
+    
+    assert_equal(2, p.a.size)
+    assert_equal(true, p.a[0])
+    assert_equal(false, p.a[1])
+    assert_equal(1, p.b)
+  end
+  
+  def check_default_cons_of_parse(cons_declare)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        send(cons_declare, OpenSSL::ASN1::Boolean, :a, { default: [true, false] })
+        asn1_integer :b
+      end
+    end
+    
+    helper = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :b
+      end
+    end
+
+    h = helper.new
+    h.b = 1
+    
+    p = template.parse(h.to_asn1)
+    
+    assert_equal(2, p.a.size)
+    assert_equal(true, p.a[0])
+    assert_equal(false, p.a[1])
+    assert_equal(1, p.b)
+  end
+  
 end
 
 

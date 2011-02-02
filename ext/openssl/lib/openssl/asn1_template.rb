@@ -22,9 +22,9 @@ module OpenSSL
     #class instance and by providing a +parse+ class method in the class that
     #includes this module.
     #available options { optional: false, tag: nil, 
-    #                    tagging: nil, infinite_length: false,
-    #                    default: nil }
-    #definition {type, name, inner_def, options, parser, encoder}
+    #                    tagging: nil, default: nil,
+    #                    infinite_length: nil }
+    #definition { type, name, inner_def, options, parser, encoder }
     module Template
       
       def self.included(base)
@@ -410,9 +410,9 @@ module OpenSSL
             tagging = options[:tagging]
             inf_length = options[:infinite_length]
             value = obj.instance_variable_get("@" + name.to_s)
-            value_raise_or_default(value, name, options)
-            
+            value = value_raise_or_default(value, name, options)
             return nil if value == nil
+            
             seq_value = Array.new
             value.each do |element|
               #inner values are either template types or primitives
@@ -774,6 +774,10 @@ module OpenSSL
             seq, matched = match(asn1, type, name, options)
             return false unless seq
             
+            unless is_template || matched
+              seq = wrap_defaults(inner_type, seq)
+            end
+            
             ret = Array.new
             if is_template
               tmp_class = Class.new do
@@ -787,8 +791,12 @@ module OpenSSL
               next if val.tag == OpenSSL::ASN1::EOC
               
               if is_template
-                TemplateParser.parse(tmp, val, deff)
-                ret << tmp.object
+                consumed = TemplateParser.parse(tmp, val, deff)
+                ret << tmp.object if consumed
+                unless consumed
+                  raise OpenSSL::ASN1::ASN1.Error.new("Type mismatch in " +
+                    " constructive sequence of. Expected #{inner_type}.Got: #{val}")
+                end
               else
                 ret << val.value
               end
@@ -804,6 +812,17 @@ module OpenSSL
             end
             matched
           end
+          
+          private
+          
+          def wrap_defaults(inner_type, defaults)
+            ret = Array.new
+            defaults.each do |val|
+              ret << inner_type.new(val)
+            end
+            ret
+          end
+                        
         end
       end
       

@@ -30,11 +30,11 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 
 === No top-level optional for choices? (Except if they're declared as a separate type)
 
+=== Set order
+
+* Take care of SET and SET OF ordering
+
 === Tests 
-
-* Tests for default of asn1_any
-
-* Tests for default of asn1_sequence_of, asn1_set_of
 
 * Infinite length for primitives
 
@@ -44,7 +44,7 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 
 * Infinite length with implicit tagging
 
-* asn1_any with infinite length
+* Infinite length for asn1_any
 
 === String encoders
 
