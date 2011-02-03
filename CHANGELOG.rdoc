@@ -1,4 +1,10 @@
 === 0.2.0 / 2011-02-02 [emboss]
+* Split Template in three separate files
+
+Base file is template.rb, which requires templates/encoder.rb
+and templates/parser.rb.
+
+=== 0.2.0 / 2011-02-02 [emboss]
 * Added further tests for Template
 * Fixed bug for non-matching templates
 
