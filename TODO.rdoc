@@ -23,6 +23,27 @@ being forced to create a template for an otherwise useless ASN.1 construct.
   which elements should be encoded as infinite length values (and possibly also
   the chunk sizes) should exist (function parameter, separate function, block?)
 * the above points imply removing the infinite_length option from the template definition
+* roadmap for having it on a per-instance basis: For template and constructive_of, set
+  an instance variable at the corresponding instance variable. Primtives set it if encountered
+  on the value when parsing, for encoding it's an instance variable of the value. The 
+  most tricky part is for ConstructiveParser and -Encoder. If the object to encode or to parse
+  has an instance variable infinite length set, then also set it on the parsed object or the
+  output ASN1. For inner constructives, have an array instance variable that keeps track of
+  the indices (relative to the definition) of the inner sequences/sets that have infinite_length
+
+Example:
+
+asn1_declare Sequence do
+asn1_integer :a
+asn1_sequence do
+asn1_integer :b
+end
+asn1_sequence do
+asn1_integer :c
+end
+end
+
+if the second inner sequence shall be infinite length, set array[1] to true.
 
 === Multi-threaded parsing
 
