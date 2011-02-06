@@ -741,8 +741,9 @@ ossl_asn1_decode0(unsigned char **pp, long length, long *offset, long depth,
     ary = rb_ary_new();
     p = *pp;
     while(length > 0){
-	start = p;
+        start = p;
 	p0 = p;
+        infinite = 0;
 	j = ASN1_get_object(&p0, &len, &tag, &tc, length);
 	p = (unsigned char *)p0;
 	if(j & 0x80) ossl_raise(eASN1Error, NULL);
@@ -833,6 +834,7 @@ ossl_asn1_decode0(unsigned char **pp, long length, long *offset, long depth,
                     asn1data = rb_funcall(cASN1EndOfContent,
                                           rb_intern("new"),
                                           0);
+                    once = 1;
                 }
                 else{
                     asn1data = rb_funcall(klass, rb_intern("new"), 1, value);
@@ -919,12 +921,14 @@ ossl_asn1_initialize(int argc, VALUE *argv, VALUE self)
     if(argc > 1){
 	if(NIL_P(tag))
 	    ossl_raise(eASN1Error, "must specify tag number");
-        if(NIL_P(tagging))
-	    tagging = ID2SYM(sEXPLICIT);
-	if(!SYMBOL_P(tagging))
-	    ossl_raise(eASN1Error, "invalid tag default");
-	if(NIL_P(tag_class))
-	    tag_class = ID2SYM(sCONTEXT_SPECIFIC);
+        if(!NIL_P(tagging) && !SYMBOL_P(tagging))
+	    ossl_raise(eASN1Error, "invalid tagging method");
+	if(NIL_P(tag_class)) {
+            if (NIL_P(tagging))
+                tag_class = ID2SYM(sUNIVERSAL);
+            else
+                tag_class = ID2SYM(sCONTEXT_SPECIFIC);
+        }
 	if(!SYMBOL_P(tag_class))
 	    ossl_raise(eASN1Error, "invalid tag class");
 	if(SYM2ID(tagging) == sIMPLICIT && NUM2INT(tag) > 31)

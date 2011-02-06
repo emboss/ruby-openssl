@@ -64,23 +64,24 @@ module OpenSSL::ASN1::Template
       
       def to_asn1(obj, definition)
         options = definition[:options]
-        if options[:infinite_length]
-          return PrimitiveEncoderInfinite.to_asn1(obj, definition)
-        end
-        
-        type = definition[:type] 
+        type = definition[:type]
         tag = options[:tag]
         tagging = options[:tagging]
         name = definition[:name]
         val = obj.instance_variable_get("@" + name.to_s)
-        
+
         if type == OpenSSL::ASN1::Null
           return nil if options[:optional]
           return type_new(nil, type, tag, tagging)
         end
         
-        value = value_raise_or_default(val, name, options) 
+        value = value_raise_or_default(val, name, options)
         return nil if value == nil
+
+        if val.instance_variable_get(:@infinite_length)
+          return PrimitiveEncoderInfinite.to_asn1(obj, definition)
+        end
+
         type_new(value, type, tag, tagging)
       end
     end
@@ -124,11 +125,13 @@ module OpenSSL::ASN1::Template
         options = definition[:options]
         type = definition[:type] 
         inner_def = definition[:inner_def]
-        inf_length = options[:infinite_length]
+        inf_length = obj.instance_variable_get(:@infinite_length)
         tag = options[:tag]
         tagging = options[:tagging]
         value = Array.new
-        
+
+        # if no inner values have been set, we can treat
+        # the entire constructed value as not present
         if options[:optional]
           return nil if no_inner_vars_set?(inner_def, obj)
         end
@@ -137,10 +140,6 @@ module OpenSSL::ASN1::Template
           inner_obj = Encoder.to_asn1_obj(obj, element)
           value << inner_obj if inner_obj
         end
-        
-        # if no inner values have been set, we can treat 
-        # the entire constructed value as not present
-        return nil if value.empty?
         
         value << OpenSSL::ASN1::EndOfContent.new if inf_length
         
@@ -186,16 +185,18 @@ module OpenSSL::ASN1::Template
         tag_class = determine_tag_class(tag)
         tagging = options[:tagging]
         name = definition[:name]
-        inf_length = options[:infinite_length]
         value = obj.instance_variable_get("@" + name.to_s)
         value = value_raise_or_default(value, name, options)
+        return nil if value == nil
+        inf_length = value.instance_variable_get(:@infinite_length)
+
         tag = tag || value.tag
         unless tagging 
           if value.respond_to?(:tagging)
             tagging = value.tagging
           end
         end
-        return nil if value == nil
+
         encode_explicit(value, tag, tagging, tag_class, inf_length)
       end
       
@@ -273,11 +274,11 @@ module OpenSSL::ASN1::Template
         inner_type = definition[:type]
         tag = options[:tag]
         tagging = options[:tagging]
-        inf_length = options[:infinite_length]
         value = obj.instance_variable_get("@" + name.to_s)
         value = value_raise_or_default(value, name, options)
         return nil if value == nil
-        
+        inf_length = value.instance_variable_get(:@infinite_length)
+
         seq_value = Array.new
         value.each do |element|
           #inner values are either template types or primitives
@@ -303,16 +304,19 @@ module OpenSSL::ASN1::Template
         unless value.is_a? ChoiceValue
           raise ArgumentError.new("ChoiceValue expected for #{name}")
         end
-        type = value.type
-        
+
         tmp_def = get_definition(value, definition[:inner_def])
         tmp_def[:name] = :value
-        tmp_def[:options][:infinite_length] = options[:infinite_length]
-        if value.type.superclass == OpenSSL::ASN1::Constructive
+        if tmp_def[:encoder] == ConstructiveEncoder
           tmp_val = value.value #values to be encoded are in a helper object
         else
           tmp_val = value
         end
+
+        if obj.instance_variable_get(:@infinite_length)
+          tmp_val.instance_variable_set(:@infinite_length, true)
+        end
+
         tmp_def[:encoder].to_asn1(tmp_val, tmp_def)
       end
           

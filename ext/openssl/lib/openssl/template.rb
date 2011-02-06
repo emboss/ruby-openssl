@@ -69,8 +69,7 @@ module OpenSSL::ASN1
   #class instance and by providing a +parse+ class method in the class that
   #includes this module.
   #available options { optional: false, tag: nil, 
-  #                    tagging: nil, default: nil,
-  #                    infinite_length: nil }
+  #                    tagging: nil, default: nil }
   #definition { type, name, inner_def, options, parser, encoder }
   module Template
       

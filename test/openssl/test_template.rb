@@ -1069,6 +1069,64 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
 
+  def test_infinite_length_declared_sequence
+     check_infinite_length_declared(OpenSSL::ASN1::Sequence)
+  end
+
+  def test_infinite_length_declared_set
+     check_infinite_length_declared(OpenSSL::ASN1::Set)
+  end
+  
+  def test_infinite_length_template
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_integer :a
+      end
+    end
+    
+    container = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_template template, :a
+      end
+    end
+
+    t = template.new
+    t.a = 1
+    t.instance_variable_set(:@infinite_length, true)
+    c = container.new
+    c.a = t
+    c.instance_variable_set(:@infinite_length, true)
+    
+    asn1 = c.to_asn1
+    pp asn1
+    assert_universal_infinite(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(2, asn1.value.size)
+    seq = asn1.value[0]
+    assert_universal_infinite(OpenSSL::ASN1::SEQUENCE, seq)
+    assert_equal(2, seq.value.size)
+    int = seq.value[0]
+    assert_equal(1, int.value)
+    assert_universal(OpenSSL::ASN1::EOC, seq.value[1])
+    assert_universal(OpenSSL::ASN1::EOC, asn1.value[1])
+    
+    der = asn1.to_der
+    File.open('tmp', 'wb') do |f|
+      f.print(der)
+    end
+    tmp = OpenSSL::ASN1.decode(der)
+    pp tmp
+    p = container.parse(der)
+    assert_equal(true, p.instance_variable_get(:@infinite_length))
+    pt = p.a 
+    assert_equal(true, pt.instance_variable_get(:@infinite_length))
+    assert_equal(1, pt.a)
+    assert_equal(der, p.to_der)
+  end
+
   def test_parse_raw
     template = Class.new do
       include OpenSSL::ASN1::Template
@@ -1276,7 +1334,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     end
     
     c = container.new
-    refute_nil(c.a)
+    c.a.a = 1
     assert_nil(c.b)
     assert_nil(c.c)
   end
@@ -1389,9 +1447,19 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
   private
   
   def assert_universal(tag, asn1)
+    do_assert_universal(tag, asn1, false)
+  end
+
+  def assert_universal_infinite(tag, asn1)
+    do_assert_universal(tag, asn1, true)
+  end
+
+  def do_assert_universal(tag, asn1, inf_length)
     assert_equal(tag, asn1.tag)
-    assert_equal(false, asn1.infinite_length)
-    assert_nil(asn1.tagging)
+    assert_equal(inf_length, asn1.infinite_length)
+    if asn1.respond_to?(:tagging)
+      assert_nil(asn1.tagging)
+    end
     assert_equal(:UNIVERSAL, asn1.tag_class)
   end
   
@@ -2089,7 +2157,34 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(false, p.a[1])
     assert_equal(1, p.b)
   end
-  
+
+  def check_infinite_length_declared(cons)
+     template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare cons do
+        asn1_integer :a
+      end
+     end
+
+    t = template.new
+    t.a = 1
+    t.instance_variable_set(:@infinite_length, true)
+    asn1 = t.to_asn1
+    assert_universal_infinite(OpenSSL::ASN1::CLASS_TAG_MAP[cons], asn1)
+    assert_equal(2, asn1.value.size)
+    int = asn1.value[0]
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(1, int.value)
+    eoc = asn1.value[1]
+    assert_universal(OpenSSL::ASN1::EOC, eoc)
+
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(true, p.instance_variable_get(:@infinite_length))
+    assert_equal(1, p.a)
+    assert_equal(der, p.to_der)
+  end
 end
 
 

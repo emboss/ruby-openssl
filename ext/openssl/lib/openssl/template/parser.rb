@@ -109,7 +109,7 @@ module OpenSSL::ASN1::Template
         name = definition[:name] 
         options = definition[:options]
                         
-        if definition[:infinite_length] || asn1.infinite_length
+        if asn1.infinite_length
           return PrimitiveParserInfinite.parse(obj, asn1, definition)
         end
           
@@ -174,7 +174,7 @@ module OpenSSL::ASN1::Template
         type = definition[:type]
         optional = options[:optional]
         tagging = options[:tagging]
-        inf_length = options[:infinite_length]
+        inf_length = asn1.infinite_length
             
         seq, matched = match(asn1, type, nil, options)
         return false unless seq # || matched not needed, value != false
@@ -193,9 +193,12 @@ module OpenSSL::ASN1::Template
           end
         end
               
-        if inf_length && seq[i].tag != OpenSSL::ASN1::EOC
-          raise OpenSSL::ASN1::ASN1Error.new(
-            "Expected EOC. Got #{seq[i].tag}")
+        if inf_length
+          unless seq[i].tag == OpenSSL::ASN1::EOC
+            raise OpenSSL::ASN1::ASN1Error.new(
+              "Expected EOC. Got #{seq[i].tag}")
+          end
+          obj.instance_variable_set(:@infinite_length, true)
         end
               
         num_parsed = inf_length ? i + 1 : i
@@ -299,7 +302,7 @@ module OpenSSL::ASN1::Template
         name = definition[:name]
         optional = options[:optional]
         tagging = options[:tagging]
-        inf_length = options[:infinite_length]
+        inf_length = asn1.infinite_length
                         
         seq, matched = match(asn1, type, name, options)
         return false unless seq

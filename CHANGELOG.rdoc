@@ -1,3 +1,7 @@
+=== 0.2.0 / 2011-02-06 [emboss]
+* Started infinite length support
+* Fixed bug within ASN.1 decoding
+
 === 0.2.0 / 2011-02-02 [emboss]
 * Split Template in three separate files
 

@@ -412,7 +412,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
       assert_equal(raw, OpenSSL::ASN1.decode(raw).to_der)
     end
   end
-
+  
   def test_bit_string_infinite_length
     begin
       content = [ OpenSSL::ASN1::BitString.new("\x01"),
@@ -428,6 +428,41 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
       assert_equal(raw, cons.to_der)
       assert_equal(raw, OpenSSL::ASN1.decode(raw).to_der)
     end
+  end
+  
+  def test_recursive_octet_string_parse
+    test = %w{ 24 80 24 80 04 01 01 00 00 24 80 04 01 02 00 00 04 01 03 00 00 }
+    raw = [test.join('')].pack('H*')
+    asn1 = OpenSSL::ASN1.decode(raw)
+    assert_equal(OpenSSL::ASN1::Constructive, asn1.class)
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, asn1)
+    assert_equal(true, asn1.infinite_length)
+    assert_equal(4, asn1.value.size)
+    nested1 = asn1.value[0]
+    assert_equal(OpenSSL::ASN1::Constructive, nested1.class)
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, nested1)
+    assert_equal(true, nested1.infinite_length)
+    assert_equal(2, nested1.value.size)
+    oct1 = nested1.value[0]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct1)
+    assert_equal(false, oct1.infinite_length)
+    assert_universal(OpenSSL::ASN1::EOC, nested1.value[1])
+    assert_equal(false, nested1.value[1].infinite_length)
+    nested2 = asn1.value[1]
+    assert_equal(OpenSSL::ASN1::Constructive, nested2.class)
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, nested2)
+    assert_equal(true, nested2.infinite_length)
+    assert_equal(2, nested2.value.size)
+    oct2 = nested2.value[0]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct2)
+    assert_equal(false, oct2.infinite_length)
+    assert_universal(OpenSSL::ASN1::EOC, nested2.value[1])
+    assert_equal(false, nested2.value[1].infinite_length)
+    oct3 = asn1.value[2]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct3)
+    assert_equal(false, oct3.infinite_length)
+    assert_universal(OpenSSL::ASN1::EOC, asn1.value[3])
+    assert_equal(false, asn1.value[3].infinite_length)
   end
   
   def test_default_tag_of_class
@@ -474,6 +509,16 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     instance = sub.new([OpenSSL::ASN1::EndOfContent.new])
     instance.infinite_length = true
     puts instance.to_der
+  end
+  
+  private
+  
+  def assert_universal(tag, asn1)
+    assert_equal(tag, asn1.tag)
+    if asn1.respond_to?(:tagging)
+      assert_nil(asn1.tagging)
+    end
+    assert_equal(:UNIVERSAL, asn1.tag_class)
   end
   
 end if defined?(OpenSSL)
