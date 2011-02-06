@@ -112,6 +112,7 @@ module OpenSSL::ASN1
         parse_raw(options)
       else
         @options = options
+        @infinite_length_indices = Array.new
         definition = self.class.instance_variable_get(:@_definition).merge({ options: options })
         init_mandatory_templates(definition)
       end
@@ -125,6 +126,22 @@ module OpenSSL::ASN1
     def to_asn1
       definition = self.class.instance_variable_get(:@_definition).merge({ options: @options })
       Encoder.to_asn1_obj(self, definition)
+    end
+
+    def set_infinite_length(value)
+      instance_variable_set(:@infinite_length, value)
+    end
+
+    def set_infinite_length_iv(name, value, sizes=nil)
+      val_iv = instance_variable_get(name)
+      val_iv.instance_variable_set(:@infinite_length, value)
+      if sizes
+        val_iv.instance_variable_set(:@infinite_length_sizes, sizes)
+      end
+    end
+
+    def set_infinite_length_index(index, value)
+      @infinite_length_indices[index] = value
     end
       
     private

@@ -1096,10 +1096,10 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
 
     t = template.new
     t.a = 1
-    t.instance_variable_set(:@infinite_length, true)
+    t.set_infinite_length(true)
     c = container.new
     c.a = t
-    c.instance_variable_set(:@infinite_length, true)
+    c.set_infinite_length(true)
     
     asn1 = c.to_asn1
     assert_universal_infinite(OpenSSL::ASN1::SEQUENCE, asn1)
@@ -2163,7 +2163,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
 
     t = template.new
     t.a = 1
-    t.instance_variable_set(:@infinite_length, true)
+    t.set_infinite_length(true)
     asn1 = t.to_asn1
     assert_universal_infinite(OpenSSL::ASN1::CLASS_TAG_MAP[cons], asn1)
     assert_equal(2, asn1.value.size)
