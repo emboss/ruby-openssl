@@ -486,10 +486,6 @@ static ossl_asn1_info_t ossl_asn1_info[] = {
     { "CHARACTER_STRING",  NULL,                  },  /* 29 */
     { "BMPSTRING",         &cASN1BMPString,       },  /* 30 */
 };
-    
-    
-
-
 
 int ossl_asn1_info_size = (sizeof(ossl_asn1_info)/sizeof(ossl_asn1_info[0]));
 
