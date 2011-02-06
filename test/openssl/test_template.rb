@@ -1102,7 +1102,6 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     c.instance_variable_set(:@infinite_length, true)
     
     asn1 = c.to_asn1
-    pp asn1
     assert_universal_infinite(OpenSSL::ASN1::SEQUENCE, asn1)
     assert_equal(2, asn1.value.size)
     seq = asn1.value[0]
@@ -1114,11 +1113,6 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_universal(OpenSSL::ASN1::EOC, asn1.value[1])
     
     der = asn1.to_der
-    File.open('tmp', 'wb') do |f|
-      f.print(der)
-    end
-    tmp = OpenSSL::ASN1.decode(der)
-    pp tmp
     p = container.parse(der)
     assert_equal(true, p.instance_variable_get(:@infinite_length))
     pt = p.a 
