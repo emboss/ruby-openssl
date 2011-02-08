@@ -1,3 +1,12 @@
+=== 0.2.0 / 2011-02-08 [emboss]
+* Removed asn1_sequence/asn1_set
+
+Although a nice-to-have they introduce complexity
+and are not really needed. Each inner Sequence or 
+Set should be represented by another template. If
+an inner value should be accessible from the top
+level, this can be handled by method aliasing.
+
 === 0.2.0 / 2011-02-06 [emboss]
 * Started infinite length support
 * Fixed bug within ASN.1 decoding

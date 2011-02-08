@@ -130,12 +130,6 @@ module OpenSSL::ASN1::Template
         tagging = options[:tagging]
         value = Array.new
 
-        # if no inner values have been set, we can treat
-        # the entire constructed value as not present
-        if options[:optional]
-          return nil if no_inner_vars_set?(inner_def, obj)
-        end
-        
         inner_def.each do |element|
           inner_obj = Encoder.to_asn1_obj(obj, element)
           value << inner_obj if inner_obj
@@ -146,16 +140,6 @@ module OpenSSL::ASN1::Template
         type_new(value, type, tag, tagging, inf_length)
       end
       
-      private
-      
-      def no_inner_vars_set?(inner_def, obj)
-        one_set = false
-        inner_def.each do |deff|
-          iv = obj.instance_variable_get("@" + deff[:name].to_s)
-          one_set = true unless iv == nil
-        end
-        !one_set
-      end
     end
   end
       

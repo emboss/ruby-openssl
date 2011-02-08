@@ -112,7 +112,6 @@ module OpenSSL::ASN1
         parse_raw(options)
       else
         @options = options
-        @infinite_length_indices = Array.new
         definition = self.class.instance_variable_get(:@_definition).merge({ options: options })
         init_mandatory_templates(definition)
       end
@@ -140,10 +139,6 @@ module OpenSSL::ASN1
       end
     end
 
-    def set_infinite_length_index(index, value)
-      @infinite_length_indices[index] = value
-    end
-      
     private
       
     def parse_raw(raw)
@@ -197,26 +192,6 @@ module OpenSSL::ASN1
                          encoder: encoder,
                          parser: parser }
                 cur_def[:inner_def] << deff
-              end
-            end
-          end
-            
-          define_method :declare_cons do |meth_name, type|
-            if !block_given?
-              raise ArgumentError("#{meth_name} must be given a block.")
-            end
-              
-            eigenclass.instance_eval do
-              define_method meth_name do |opts={}, &proc|
-                tmp_def = cur_def
-                cur_def = { type: type,
-                            options: opts, 
-                            inner_def: Array.new, 
-                            encoder: ConstructiveEncoder,
-                            parser: ConstructiveParser }
-                proc.call
-                tmp_def[:inner_def] << cur_def
-                cur_def = tmp_def
               end
             end
           end
@@ -280,9 +255,6 @@ module OpenSSL::ASN1
         declare_prim(:asn1_general_string, OpenSSL::ASN1::GeneralString)
         declare_prim(:asn1_universal_string, OpenSSL::ASN1::UniversalString)
         declare_prim(:asn1_bmp_string, OpenSSL::ASN1::BMPString)
-        
-        declare_cons(:asn1_sequence, OpenSSL::ASN1::Sequence)
-        declare_cons(:asn1_set, OpenSSL::ASN1::Set)
         
         declare_special_typed(:asn1_template, TemplateEncoder, TemplateParser)
         declare_special_typed(:asn1_sequence_of, SequenceOfEncoder, SequenceOfParser)

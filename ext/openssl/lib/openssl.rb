@@ -24,5 +24,3 @@ require 'openssl/x509'
 require 'openssl/ssl-internal'
 require 'openssl/x509-internal'
 require 'openssl/template'
-require 'openssl/ts'
-

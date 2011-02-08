@@ -1331,7 +1331,7 @@ Init_ossl_ts(void)
      *      ts.verify(req, root, inter1, inter2) -> ts or raises an exception if validation fails
      *
      */
-    mTimestamp = rb_define_module_under(mOSSL, "TS");
+    mTimestamp = rb_define_module_under(mOSSL, "Timestamp");
 
     /* Document-class: OpenSSL::Timestamp::TimestampError
      * Generic exception class of the Timestamp module.

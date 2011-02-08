@@ -18,35 +18,11 @@ being forced to create a template for an otherwise useless ASN.1 construct.
   an Array of sizes for each chunk ( e.g. [4096, 4096, 217] ). 
 * To simplify this funtionality for users, offer instance methods for Template
   
-* set_infinite_length(name, chunk_size=nil) (do the math internally) for templates
-  and primitive values
-* set_infinite_length() for the template itself
-* set_infinite_length(index) for anonymous sequences declared by asn1_sequence.
-  index refers to the offset of that sequence within the declaration (e.g. the
-  third inner sequence would map to 2, cf. below for another example)
-  
+* set_infinite_length(name, chunk_size=nil) (do the math internally) and primitive values
+
 * roadmap for having it on a per-instance basis: Primtives set it if encountered
   on the value when parsing, for encoding it's an instance variable of the 
-  value. (Take care of the chunk sizes). The most tricky part is for 
-  ConstructiveParser and -Encoder. If the object to encode or to parse has 
-  an instance variable infinite length set, then also set it on the parsed 
-  object or the output ASN1. For inner constructives, have an array instance
-  variable that keeps track of the indices (relative to the definition) of
-  the inner sequences/sets that have infinite_length
-
-Example:
-
-asn1_declare Sequence do
-asn1_integer :a
-asn1_sequence do
-asn1_integer :b
-end
-asn1_sequence do
-asn1_integer :c
-end
-end
-
-if the second inner sequence shall be infinite length, set array[1] to true.
+  value. (Take care of the chunk sizes). 
 
 === Multi-threaded parsing
 
@@ -59,8 +35,6 @@ if the second inner sequence shall be infinite length, set array[1] to true.
 === Tests 
 
 * Infinite length for primitives
-
-* Infinite length for constructed values
 
 * Infinite length with explicit tagging
 
