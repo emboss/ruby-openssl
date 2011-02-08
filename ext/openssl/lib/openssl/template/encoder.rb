@@ -121,7 +121,7 @@ module OpenSSL::ASN1::Template
     class << self
       include TypeEncoder, TemplateUtil
       
-      def to_asn1(obj, definition)
+      def to_asn1(obj, definition, depth=0)
         options = definition[:options]
         type = definition[:type] 
         inner_def = definition[:inner_def]
@@ -135,9 +135,11 @@ module OpenSSL::ASN1::Template
         if options[:optional]
           return nil if no_inner_vars_set?(inner_def, obj)
         end
-        
+
+        i = 0
+
         inner_def.each do |element|
-          inner_obj = Encoder.to_asn1_obj(obj, element)
+          inner_obj, i = encode_inner(obj, element, i, depth)
           value << inner_obj if inner_obj
         end
         
@@ -156,6 +158,27 @@ module OpenSSL::ASN1::Template
         end
         !one_set
       end
+      
+      def encode_inner(obj, inner_def, index, depth)
+        if inner_def[:encoder] == ConstructiveEncoder
+          inner_obj = ConstructiveEncoder.to_asn1(obj, inner_def, depth + 1)
+          index += 1
+        else
+          inner_obj = Encoder.to_asn1_obj(obj, inner_def)
+        end
+        
+        unless inner_obj
+          return nil, index 
+        end
+        
+        inf_len_indices = obj.instance_variable_get(:@infinite_length_indices)
+        indices = inf_len_indices ? inf_len_indices[depth] : nil
+        if indices && indices[index]
+          inner_obj.infinite_length = true
+        end
+        return inner_obj, index
+      end
+      
     end
   end
       

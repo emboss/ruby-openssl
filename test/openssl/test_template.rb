@@ -1070,13 +1070,21 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
   end
 
   def test_infinite_length_declared_sequence
-     check_infinite_length_declared(OpenSSL::ASN1::Sequence)
+    check_infinite_length_declared(OpenSSL::ASN1::Sequence)
   end
 
   def test_infinite_length_declared_set
-     check_infinite_length_declared(OpenSSL::ASN1::Set)
+    check_infinite_length_declared(OpenSSL::ASN1::Set)
   end
-  
+
+  def test_infinite_length_sequence
+    check_infinite_length_cons(:asn1_sequence, OpenSSL::ASN1::Sequence)
+  end
+
+  def test_infinite_length_set
+    check_infinite_length_cons(:asn1_set, OpenSSL::ASN1::Set)
+  end
+
   def test_infinite_length_template
     template = Class.new do
       include OpenSSL::ASN1::Template
@@ -2179,6 +2187,49 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(1, p.a)
     assert_equal(der, p.to_der)
   end
+
+  def check_infinite_length_cons(cons_declare, cons)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      block = Proc.new do
+        asn1_integer :a
+      end
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        send(cons_declare, &block)
+      end
+    end
+
+    t = template.new
+    t.a = 1
+    t.set_infinite_length(true)
+    t.set_infinite_length_index(true, 0)
+    asn1 = t.to_asn1
+    pp asn1
+    assert_universal_infinite(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(2, asn1.value.size)
+    seq = asn1.value[0]
+    assert_universal_infinite(OpenSSL::ASN1::SEQUENCE, seq)
+    assert_equal(2, seq.value.size)
+    int = seq.value[0]
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(1, int.value)
+    eoc1 = seq.value[1]
+    assert_universal(OpenSSL::ASN1::EOC, eoc1)
+    eoc = asn1.value[1]
+    assert_universal(OpenSSL::ASN1::EOC, eoc)
+
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(true, p.instance_variable_get(:@infinite_length))
+    inf_len_indices = p.instance_variable_get(:@infinite_length_indices)
+    depth0 = inf_len_indices[0]
+    assert_equal(true, depth0[0])
+    assert_equal(1, p.a)
+    assert_equal(der, p.to_der)
+  end
+
 end
 
 
