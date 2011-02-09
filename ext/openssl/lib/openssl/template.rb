@@ -70,7 +70,7 @@ module OpenSSL::ASN1
   #includes this module.
   #available options { optional: false, tag: nil, 
   #                    tagging: nil, default: nil }
-  #definition { type, name, inner_def, options, parser, encoder }
+  #definition { type, name, setter, inner_def, options, parser, encoder }
   module Template
       
     def self.included(base)
@@ -132,9 +132,20 @@ module OpenSSL::ASN1
     end
 
     def set_infinite_length_iv(name, value, sizes=nil)
-      val_iv = instance_variable_get(name)
+      val_iv = send(name)
       val_iv.instance_variable_set(:@infinite_length, value)
       if sizes
+        unless sizes.respond_to?(:each)
+          chunk_size = sizes
+          sizes = Array.new
+          val_size = val_iv.bytesize
+          this_many = val_size / chunk_size
+          this_many.times do
+            sizes << chunk_size
+          end
+          rest = val_size - (this_many * chunk_size)
+          sizes << rest if rest != 0
+        end
         val_iv.instance_variable_set(:@infinite_length_sizes, sizes)
       end
     end
@@ -178,16 +189,17 @@ module OpenSSL::ASN1
         eigenclass = class << self; self; end
         eigenclass.instance_eval do
           
-          define_method :declare_prim do |meth_name, 
-                                          type, 
-                                          parser=PrimitiveParser, 
+          define_method :declare_prim do |meth_name,
+                                          type,
+                                          parser=PrimitiveParser,
                                           encoder=PrimitiveEncoder|
             eigenclass.instance_eval do
               define_method meth_name do |name=nil, opts={}|
                 attr_accessor name if name
                 
                 deff = { type: type, 
-                         name: name, 
+                         name: name,
+                         setter: name.to_s + '=',
                          options: opts, 
                          encoder: encoder,
                          parser: parser }
@@ -202,6 +214,7 @@ module OpenSSL::ASN1
                 attr_accessor name if name
                 deff = { type: type,
                          name: name,
+                         setter: name.to_s + '=',
                          options: opts,
                          encoder: encoder,
                          parser: parser }
@@ -213,7 +226,8 @@ module OpenSSL::ASN1
           define_method :asn1_any do |name=nil, opts={}|
             attr_accessor name if name
             deff = { type: OpenSSL::ASN1::ASN1Data,
-                     name: name, 
+                     name: name,
+                     setter: name.to_s + '=',
                      options: opts, 
                      encoder: AnyEncoder,
                      parser: AnyParser }
@@ -224,6 +238,7 @@ module OpenSSL::ASN1
             attr_accessor name
             tmp_def = cur_def
             cur_def = { name: name,
+                        setter: name.to_s + '=',
                         options: opts,
                         inner_def: Array.new,
                         encoder: ChoiceEncoder,

@@ -68,17 +68,17 @@ module OpenSSL::ASN1::Template
         tag = options[:tag]
         tagging = options[:tagging]
         name = definition[:name]
-        val = obj.instance_variable_get("@" + name.to_s)
 
         if type == OpenSSL::ASN1::Null
           return nil if options[:optional]
           return type_new(nil, type, tag, tagging)
         end
-        
+
+        val = obj.send(name)
         value = value_raise_or_default(val, name, options)
         return nil if value == nil
 
-        if val.instance_variable_get(:@infinite_length)
+        if value.instance_variable_get(:@infinite_length)
           return PrimitiveEncoderInfinite.to_asn1(obj, definition)
         end
 
@@ -97,7 +97,7 @@ module OpenSSL::ASN1::Template
         tag = default_tag_of_type(type)
         tagging = options[:tagging]
         name = definition[:name]
-        val = obj.instance_variable_get("@" + name.to_s)
+        val = obj.send(name)
         value = value_raise_or_default(val, name, options)
         return nil if value == nil
         
@@ -150,7 +150,7 @@ module OpenSSL::ASN1::Template
       def to_asn1(obj, definition)
         options = definition[:options]
         name = definition[:name]
-        value = obj.instance_variable_get("@" + name.to_s)
+        value = obj.send(name)
         value = value_raise_or_default(value, name, options)
         return nil if value == nil
         val_def = value.class.instance_variable_get(:@_definition).merge({ options: options })
@@ -169,7 +169,7 @@ module OpenSSL::ASN1::Template
         tag_class = determine_tag_class(tag)
         tagging = options[:tagging]
         name = definition[:name]
-        value = obj.instance_variable_get("@" + name.to_s)
+        value = obj.send(name)
         value = value_raise_or_default(value, name, options)
         return nil if value == nil
         inf_length = value.instance_variable_get(:@infinite_length)
@@ -258,7 +258,7 @@ module OpenSSL::ASN1::Template
         inner_type = definition[:type]
         tag = options[:tag]
         tagging = options[:tagging]
-        value = obj.instance_variable_get("@" + name.to_s)
+        value = obj.send(name)
         value = value_raise_or_default(value, name, options)
         return nil if value == nil
         inf_length = value.instance_variable_get(:@infinite_length)
@@ -282,7 +282,7 @@ module OpenSSL::ASN1::Template
       def to_asn1(obj, definition)
         options = definition[:options]
         name = definition[:name]
-        val = obj.instance_variable_get("@" + name.to_s)
+        val = obj.send(name)
         value = value_raise_or_default(val, name, options)
         return nil if value == nil
         unless value.is_a? ChoiceValue

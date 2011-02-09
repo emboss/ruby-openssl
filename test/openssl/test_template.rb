@@ -1202,7 +1202,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     end
   end
   
-  def test_ignore_value_on_parsing
+  def test_ignore_null_on_parsing
     template = Class.new do
       include OpenSSL::ASN1::Template
       
@@ -1363,7 +1363,43 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
       p = template.parse(o.to_asn1)
     end
   end
-  
+
+  def test_size_computation_inf_length_rest
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_octet_string :a
+      end
+    end
+
+    t = template.new
+    bytes = %w{ 01 02 03 04 05 }
+    t.a = [bytes.join('')].pack('H*')
+    t.set_infinite_length_iv(:a, true, 2)
+    assert_equal(true, t.a.instance_variable_get(:@infinite_length))
+    sizes = t.a.instance_variable_get(:@infinite_length_sizes)
+    assert_equal([2, 2, 1], sizes)
+  end
+
+  def test_size_computation_inf_length_no_rest
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_octet_string :a
+      end
+    end
+
+    t = template.new
+    bytes = %w{ 01 02 03 04 }
+    t.a = [bytes.join('')].pack('H*')
+    t.set_infinite_length_iv(:a, true, 2)
+    assert_equal(true, t.a.instance_variable_get(:@infinite_length))
+    sizes = t.a.instance_variable_get(:@infinite_length_sizes)
+    assert_equal([2, 2], sizes)
+  end
+
   private
   
   def assert_universal(tag, asn1)

@@ -1,3 +1,7 @@
+=== 0.2.0 / 2011-02-09 [emboss]
+* Started infinite length support for primitives
+* Performance improvements
+
 === 0.2.0 / 2011-02-08 [emboss]
 * Removed asn1_sequence/asn1_set
 
