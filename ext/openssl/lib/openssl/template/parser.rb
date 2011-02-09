@@ -106,7 +106,6 @@ module OpenSSL::ASN1::Template
           
       def parse(obj, asn1, definition)
         type = definition[:type]
-        name = definition[:name]
         setter = definition[:setter]
         options = definition[:options]
                         
@@ -114,10 +113,10 @@ module OpenSSL::ASN1::Template
           return PrimitiveParserInfinite.parse(obj, asn1, definition)
         end
           
-        value, matched = match(asn1, type, name, options)
+        value, matched = match(asn1, type, setter, options)
         return false unless value || matched
             
-        obj.send(setter, value) if name
+        obj.send(setter, value) if definition[:name]
         matched
       end
     end
@@ -132,19 +131,19 @@ module OpenSSL::ASN1::Template
         setter = definition[:setter]
         options = definition[:options]
             
-        value, matched = match(asn1, type, setter, options)
-        return false unless value || matched
+        val, matched = match(asn1, type, setter, options)
+        return false unless val || matched
             
-        unless ary.respond_to?(:each)
+        unless val.respond_to?(:each)
           raise OpenSSL::ASN1::ASN1Error.new(
-            "Value #{name} (#{ary}) is not constructed although " +
+            "Value #{name} (#{val}) is not constructed although " +
             "expected to be of infinite length.")
         end
           
         tag = default_tag_of_class(type)
         value = Array.new
             
-        asn1.each do |part|
+        val.each do |part|
           unless part.tag == OpenSSL::ASN1::EOC
             unless part.tag == tag
               raise OpenSSL::ASN1::ASN1Error.new(

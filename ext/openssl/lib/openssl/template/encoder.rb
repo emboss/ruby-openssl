@@ -90,30 +90,67 @@ module OpenSSL::ASN1::Template
   class PrimitiveEncoderInfinite
     class << self
       include TypeEncoder, TemplateUtil
-      
+
+      DEFAULT_CHUNK_SIZE = 4096
+
       def to_asn1(obj, definition)
         options = definition[:options]
         type = definition[:type] 
-        tag = default_tag_of_type(type)
+        tag = options[:tag]
+        tag_class = determine_tag_class(tag)
+
         tagging = options[:tagging]
         name = definition[:name]
         val = obj.send(name)
         value = value_raise_or_default(val, name, options)
         return nil if value == nil
         
-        case value
-        when Array
-          cons_value = Array.new
-          value.each do |elem|
-            cons_value << type.new(elem)
-          end
-          cons_value << OpenSSL::ASN1::EndOfContent.new
-        else
-          cons_value = [ type.new(value), OpenSSL::ASN1::EndOfContent.new ]  
-        end
-        
-        type_new(cons_value, OpenSSL::ASN1::Constructive, tag, tagging, true)
+        cons_value = encode_value(value, type)
+        tag = tag || default_tag_of_type(type)
+        ret = OpenSSL::ASN1::Constructive.new(cons_value, tag, tagging, tag_class)
+        ret.infinite_length = true
+        ret
       end
+
+      private
+
+      def encode_value(value, type)
+        inf_length_sizes = value.instance_variable_get(:@infinite_length_sizes)
+        if inf_length_sizes
+          encode_with_sizes(value, type, inf_length_sizes)
+        else
+          encode_with_chunk_size(value, type, DEFAULT_CHUNK_SIZE)
+        end
+      end
+
+      def encode_with_sizes(value, type, sizes)
+        offset = 0
+        cons_value = Array.new
+        sizes.each do |chunk|
+          cons_value << type.new(value[offset, chunk])
+          offset += chunk
+        end
+        cons_value << OpenSSL::ASN1::EndOfContent.new
+        cons_value
+      end
+
+      def encode_with_chunk_size(value, type, size)
+        offset = 0
+        cons_value = Array.new
+        val_size = value.bytesize
+        this_many = val_size / size
+        this_many.times do
+          cons_value << type.new(value[offset, size])
+          offset += size
+        end
+        rest = val_size - (this_many * size)
+        unless rest
+          cons_value << type.new(value[offset, rest])
+        end
+        cons_value << OpenSSL::ASN1::EndOfContent.new
+        cons_value
+      end
+
     end
   end
         

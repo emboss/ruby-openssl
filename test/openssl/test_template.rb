@@ -1051,6 +1051,42 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
 
+  def test_infinite_length_prim_chunksize
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_octet_string :a
+      end
+    end
+
+    t = template.new
+    bytes = %w{ 01 02 03 04 05 }
+    t.a = [bytes.join('')].pack('H*')
+    t.set_infinite_length_iv(:a, true, 2)
+    asn1 = t.to_asn1
+
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    cons = asn1.value[0]
+    assert_universal_infinite(OpenSSL::ASN1::OCTET_STRING, cons)
+    assert_equal(4, cons.value.size)
+    oct1 = cons.value[0]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct1)
+    assert_equal([%w{ 01 02 }.join('')].pack('H*'), oct1.value)
+    oct2 = cons.value[1]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct2)
+    assert_equal([%w{ 03 04 }.join('')].pack('H*'), oct2.value)
+    oct3 = cons.value[2]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct3)
+    assert_equal([%w{ 05 }.join('')].pack('H*'), oct3.value)
+    assert_universal(OpenSSL::ASN1::EOC, cons.value[3])
+
+    der = asn1.to_der
+    p = template.parse(der)
+    flunk #implement PrimitiveParserInfinite
+  end
+
   def test_parse_raw
     template = Class.new do
       include OpenSSL::ASN1::Template
