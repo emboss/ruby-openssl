@@ -41,10 +41,12 @@ module OpenSSL::ASN1::Template
     def unpack_explicit(asn1)
       unpacked = asn1.value
       unless unpacked.size == 1
-        raise OpenSSL::ASN1::ASN1Error.new(
-          "Explicitly tagged value with multiple inner values")
+        unless unpacked.size == 2 && unpacked[1].tag == OpenSSL::ASN1::EOC
+          raise OpenSSL::ASN1::ASN1Error.new(
+            "Explicitly tagged value with multiple inner values")
+        end    
       end
-      asn1.value.first
+      unpacked.first
     end
          
     def unpack_implicit(asn1, type)
@@ -115,8 +117,8 @@ module OpenSSL::ASN1::Template
           
         value, matched = match(asn1, type, setter, options)
         return false unless value || matched
-            
-        obj.send(setter, value) if definition[:name]
+        
+        obj.send(setter, value) unless type == OpenSSL::ASN1::Null
         matched
       end
     end
@@ -141,22 +143,31 @@ module OpenSSL::ASN1::Template
         end
           
         tag = default_tag_of_class(type)
-        value = Array.new
-            
-        val.each do |part|
-          unless part.tag == OpenSSL::ASN1::EOC
-            unless part.tag == tag
-              raise OpenSSL::ASN1::ASN1Error.new(
-                "Tag mismatch for infinite length primitive " +
-                "value. Expected: #{tag} Got: #{part.tag}")
-            end
-            value << part.value 
-          end
-        end
-            
-        obj.send(setter, value)
+        
+        obj.send(setter, convert_to_definite(val, tag))
         matched
       end
+      
+      private
+      
+      def convert_to_definite(ary, tag)
+        ret = ''
+        inf_length_sizes = Array.new
+        ary.each do |part|
+          break if part.tag == OpenSSL::ASN1::EOC
+          unless part.tag == tag
+            raise OpenSSL::ASN1::ASN1Error.new(
+              "Tag mismatch for infinite length primitive " +
+              "value. Expected: #{tag} Got: #{part.tag}")
+          end
+          ret << part.value
+          inf_length_sizes << part.value.bytesize
+        end
+        ret.instance_variable_set(:@infinite_length, true)
+        ret.instance_variable_set(:@infinite_length_sizes, inf_length_sizes)
+        ret
+      end
+      
     end
   end
       
@@ -215,9 +226,7 @@ module OpenSSL::ASN1::Template
           raise OpenSSL::ASN1::ASN1Error.new(
             "Mandatory value #{deff[:name]} is missing.")
         end
-        if default && name
-            obj.send(setter, default)
-        end
+        obj.send(setter, default) if default
       end
           
     end
@@ -447,7 +456,10 @@ module OpenSSL::ASN1::Template
           attr_accessor :object
         end
         tmp = tmp_class.new
-        deff = { type: definition[:type], name: :object, setter: :object=, options: definition[:options] }
+        deff = { type: definition[:type], 
+                 name: :object, 
+                 setter: :object=, 
+                 options: definition[:options] }
         ret = PrimitiveParser.parse(tmp, asn1, deff)
         return false unless ret
         utf8 = tmp.object.force_encoding('UTF-8')

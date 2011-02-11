@@ -1052,6 +1052,14 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
   end
 
   def test_infinite_length_prim_chunksize
+    check_infinite_length_prim(2)
+  end
+  
+  def test_infinite_length_prim_sizes
+    check_infinite_length_prim([2, 2, 1])
+  end
+  
+  def test_infinite_length_default
     template = Class.new do
       include OpenSSL::ASN1::Template
 
@@ -1061,30 +1069,52 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     end
 
     t = template.new
-    bytes = %w{ 01 02 03 04 05 }
-    t.a = [bytes.join('')].pack('H*')
-    t.set_infinite_length_iv(:a, true, 2)
-    asn1 = t.to_asn1
+    words = %w{ 01 }
+    single_byte = [words.join('')].pack('H*')
+    bytes = single_byte * 4096
+    bval = bytes + single_byte
+    t.a = bval
+    t.set_infinite_length_iv(:a, true)
+    asn1 = t.to_asn1    
 
     assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
     assert_equal(1, asn1.value.size)
     cons = asn1.value[0]
     assert_universal_infinite(OpenSSL::ASN1::OCTET_STRING, cons)
-    assert_equal(4, cons.value.size)
+    assert_equal(3, cons.value.size)
     oct1 = cons.value[0]
     assert_universal(OpenSSL::ASN1::OCTET_STRING, oct1)
-    assert_equal([%w{ 01 02 }.join('')].pack('H*'), oct1.value)
+    assert_equal(4096, oct1.value.bytesize)
+    assert_equal(bytes, oct1.value)
     oct2 = cons.value[1]
     assert_universal(OpenSSL::ASN1::OCTET_STRING, oct2)
-    assert_equal([%w{ 03 04 }.join('')].pack('H*'), oct2.value)
-    oct3 = cons.value[2]
-    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct3)
-    assert_equal([%w{ 05 }.join('')].pack('H*'), oct3.value)
-    assert_universal(OpenSSL::ASN1::EOC, cons.value[3])
+    assert_equal(1, oct2.value.bytesize)
+    assert_equal(single_byte, oct2.value)
+    assert_universal(OpenSSL::ASN1::EOC, cons.value[2])
 
     der = asn1.to_der
     p = template.parse(der)
-    flunk #implement PrimitiveParserInfinite
+    assert_equal(bval, p.a)
+    assert_equal(true, p.a.instance_variable_get(:@infinite_length))
+    inf_length_sizes = p.a.instance_variable_get(:@infinite_length_sizes)
+    assert_equal([4096, 1], inf_length_sizes)
+    assert_equal(der, p.to_der)
+  end
+  
+  def test_infinite_length_prim_chunk_size_implicit
+    check_infinite_length_prim_tagged(:IMPLICIT, 2)
+  end
+  
+  def test_infinite_length_prim_chunk_size_explicit
+    check_infinite_length_prim_tagged(:EXPLICIT, 2)
+  end
+  
+  def test_infinite_length_prim_sizes_implicit
+    check_infinite_length_prim_tagged(:IMPLICIT, [2, 2, 1])
+  end
+  
+  def test_infinite_length_prim_sizes_explicit
+    check_infinite_length_prim_tagged(:EXPLICIT, [2, 2, 1])
   end
 
   def test_parse_raw
@@ -1972,6 +2002,102 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(1, p.a)
     assert_equal(der, p.to_der)
   end
+  
+  def check_infinite_length_prim(sizes)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_octet_string :a
+      end
+    end
+
+    t = template.new
+    words = %w{ 01 02 03 04 05 }
+    bytes = [words.join('')].pack('H*')
+    t.a = bytes
+    t.set_infinite_length_iv(:a, true, sizes)
+    asn1 = t.to_asn1
+
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    cons = asn1.value[0]
+    assert_universal_infinite(OpenSSL::ASN1::OCTET_STRING, cons)
+    assert_equal(4, cons.value.size)
+    oct1 = cons.value[0]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct1)
+    assert_equal([%w{ 01 02 }.join('')].pack('H*'), oct1.value)
+    oct2 = cons.value[1]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct2)
+    assert_equal([%w{ 03 04 }.join('')].pack('H*'), oct2.value)
+    oct3 = cons.value[2]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct3)
+    assert_equal([%w{ 05 }.join('')].pack('H*'), oct3.value)
+    assert_universal(OpenSSL::ASN1::EOC, cons.value[3])
+
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(bytes, p.a)
+    assert_equal(true, p.a.instance_variable_get(:@infinite_length))
+    inf_length_sizes = p.a.instance_variable_get(:@infinite_length_sizes)
+    assert_equal([2, 2, 1], inf_length_sizes)
+    assert_equal(der, p.to_der)
+  end
+  
+  def check_infinite_length_prim_tagged(tagging, sizes)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_octet_string :a, { tag: 0, tagging: tagging }
+      end
+    end
+
+    t = template.new
+    words = %w{ 01 02 03 04 05 }
+    bytes = [words.join('')].pack('H*')
+    t.a = bytes
+    t.set_infinite_length_iv(:a, true, sizes)
+    asn1 = t.to_asn1
+    
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    cons = asn1.value[0]
+    assert_equal(0, cons.tag)
+    assert_equal(true, cons.infinite_length)
+    assert_equal(tagging, cons.tagging) if tagging == :IMPLICIT
+    assert_equal(:CONTEXT_SPECIFIC, cons.tag_class)
+    if tagging == :EXPLICIT
+      assert_equal(2, cons.value.size)
+      assert_universal_infinite(OpenSSL::ASN1::OCTET_STRING, cons.value[0])
+      assert_universal(OpenSSL::ASN1::EOC, cons.value[1])
+      cons = cons.value[0]
+    else
+      
+    end
+    
+    assert_equal(4, cons.value.size)
+    oct1 = cons.value[0]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct1)
+    assert_equal([%w{ 01 02 }.join('')].pack('H*'), oct1.value)
+    oct2 = cons.value[1]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct2)
+    assert_equal([%w{ 03 04 }.join('')].pack('H*'), oct2.value)
+    oct3 = cons.value[2]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct3)
+    assert_equal([%w{ 05 }.join('')].pack('H*'), oct3.value)
+    assert_universal(OpenSSL::ASN1::EOC, cons.value[3])
+
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(bytes, p.a)
+    assert_equal(true, p.a.instance_variable_get(:@infinite_length))
+    inf_length_sizes = p.a.instance_variable_get(:@infinite_length_sizes)
+    assert_equal([2, 2, 1], inf_length_sizes)
+    assert_equal(der, p.to_der)
+  end
+  
 end
+
 
 
