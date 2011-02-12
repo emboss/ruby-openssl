@@ -86,7 +86,7 @@ module OpenSSL::ASN1::Template
         return tmp_asn1.value, true
       else
         default = options[:default]
-        if default
+        if default != nil
           return default, false
         else
           unless options[:optional]
