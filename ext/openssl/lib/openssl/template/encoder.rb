@@ -335,6 +335,7 @@ module OpenSSL::ASN1::Template
         options = definition[:options]
         name = definition[:name]
         val = obj.send(name)
+
         value = value_raise_or_default(val, name, options)
         return nil if value == nil
         unless value.is_a? ChoiceValue
@@ -342,10 +343,11 @@ module OpenSSL::ASN1::Template
         end
 
         tmp_def = get_definition(value, definition[:inner_def])
-        tmp_def[:name] = :value
+
         if tmp_def[:encoder] == ConstructiveEncoder
           tmp_val = value.value #values to be encoded are in a helper object
         else
+          tmp_def[:name] = :value
           tmp_val = value
         end
 

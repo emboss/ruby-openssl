@@ -86,7 +86,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_printable_string :a, { tag: 0, tagging: :IMPLICIT }
       end
     end
@@ -112,7 +112,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a, { tag: 0, tagging: :EXPLICIT }
       end
     end
@@ -189,7 +189,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_any :a
       end
     end
@@ -216,7 +216,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_any :a
       end
     end
@@ -249,7 +249,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_any :a, { tag: 0, tagging: :IMPLICIT}
       end
     end
@@ -280,7 +280,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_any :a, { tag: 0, tagging: :EXPLICIT}
       end
     end
@@ -313,7 +313,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_any :a, { default: OpenSSL::ASN1::Integer.new(1) }
       end
     end
@@ -337,7 +337,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -345,7 +345,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
         
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_template template, :a
       end
     end
@@ -373,7 +373,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -381,7 +381,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
         
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_template template, :a, { tag: 0, tagging: :IMPLICIT }
       end
     end
@@ -409,7 +409,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -417,7 +417,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
         
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_template template, :a, { tag: 0, tagging: :EXPLICIT }
       end
     end
@@ -448,7 +448,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -456,7 +456,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_template template, :a, { optional: true }
         asn1_boolean :b
         asn1_template template, :c, { optional: true, tag: 0, tagging: :EXPLICIT }
@@ -565,7 +565,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_choice :a do
           asn1_any
         end
@@ -596,7 +596,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_choice :a do
           asn1_any
         end
@@ -655,7 +655,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a, { default: 1 }
       end
     end
@@ -679,7 +679,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_object_id :a
         asn1_integer :b, { default: 1 }
         asn1_ia5_string :c, { optional: true }
@@ -689,7 +689,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     helper = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_object_id :a
         asn1_ia5_string :c, { optional: true }
       end
@@ -719,7 +719,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_object_id :a
         asn1_ia5_string :b, { optional: true }
         asn1_integer :c, { default: 1 }
@@ -729,7 +729,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     helper = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_object_id :a
         asn1_ia5_string :b, { optional: true }
       end
@@ -775,7 +775,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -786,7 +786,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_template template, :a, { default: deff }
       end
     end
@@ -812,7 +812,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -823,7 +823,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_boolean :a
         asn1_template template, :b, { default: deff }
       end
@@ -832,7 +832,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     helper = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_boolean :a
       end
     end
@@ -849,7 +849,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_printable_string :a, { optional: true }
         asn1_integer :b, { default: 1 }
         asn1_octet_string :c, { optional: true }
@@ -877,7 +877,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_printable_string :a, { optional: true }
         asn1_integer :b, { default: 1 }
         asn1_octet_string :c
@@ -909,7 +909,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_printable_string :a
         asn1_integer :b, { default: 1 }
         asn1_octet_string :c, { optional: true }
@@ -941,7 +941,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a, { default: 1 }
         asn1_printable_string :b
       end
@@ -972,7 +972,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_printable_string :a
         asn1_integer :b, { default: 1 }
       end
@@ -1000,18 +1000,18 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
   end
 
   def test_infinite_length_declared_sequence
-     check_infinite_length_declared(OpenSSL::ASN1::Sequence)
+     check_infinite_length_declared(:SEQUENCE, OpenSSL::ASN1::Sequence)
   end
 
   def test_infinite_length_declared_set
-     check_infinite_length_declared(OpenSSL::ASN1::Set)
+     check_infinite_length_declared(:SET, OpenSSL::ASN1::Set)
   end
   
   def test_infinite_length_template
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -1019,7 +1019,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_template template, :a
       end
     end
@@ -1063,7 +1063,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_octet_string :a
       end
     end
@@ -1121,7 +1121,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_any :a
       end
     end
@@ -1153,12 +1153,84 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(true, p.a.value[1].is_a?(OpenSSL::ASN1::EndOfContent))
     assert_equal(der, p.to_der)
   end
+  
+  def test_declare_choice
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare :CHOICE do
+        asn1_integer
+        asn1_boolean
+      end
+    end
+    
+    t = template.new
+    t.value = OpenSSL::ASN1::Template::ChoiceValue.new(OpenSSL::ASN1::Integer, 1)
+    asn1 = t.to_asn1
+    assert_universal(OpenSSL::ASN1::INTEGER, asn1)
+    assert_equal(1, asn1.value)
+    der = asn1.to_der
+    
+    p = template.parse(der)
+    assert_equal(true, p.value.is_a?(OpenSSL::ASN1::Template::ChoiceValue))
+    assert_equal(OpenSSL::ASN1::Integer, p.value.type)
+    assert_nil(p.value.tag)
+    assert_equal(1, p.value.value)
+    assert_equal(der, p.to_der)
+  end
+  
+  def test_sequence_of_choice
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare :CHOICE do
+        asn1_integer
+        asn1_boolean
+      end
+    end
+    
+    container = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare :SEQUENCE do
+        asn1_sequence_of template, :a
+      end
+    end
+    
+    t1 = template.new
+    t1.value = OpenSSL::ASN1::Template::ChoiceValue.new(OpenSSL::ASN1::Integer, 1)
+    t2 = template.new
+    t2.value = OpenSSL::ASN1::Template::ChoiceValue.new(OpenSSL::ASN1::Boolean, true)
+    c = container.new
+    c.a = [ t1, t2 ]
+    asn1 = c.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    seq = asn1.value.first
+    assert_universal(OpenSSL::ASN1::SEQUENCE, seq)
+    assert_equal(2, seq.value.size)
+    assert_universal(OpenSSL::ASN1::INTEGER, seq.value[0])
+    assert_equal(1, seq.value[0].value)
+    assert_universal(OpenSSL::ASN1::BOOLEAN, seq.value[1])
+    assert_equal(true, seq.value[1].value)
+    
+    der = asn1.to_der
+    p = container.parse(der)
+    ary = p.a
+    assert_equal(2, ary.size)
+    int = ary[0].value
+    assert_equal(OpenSSL::ASN1::Integer, int.type)
+    assert_equal(1, int.value)
+    bool = ary[1].value
+    assert_equal(OpenSSL::ASN1::Boolean, bool.type)
+    assert_equal(true, bool.value)
+  end
 
   def test_parse_raw
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
         asn1_printable_string :b
         asn1_printable_string :c, { tag: 0, tagging: :IMPLICIT}
@@ -1203,7 +1275,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
         asn1_printable_string :b, { optional: true }
       end
@@ -1221,7 +1293,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a, { optional: true }
         asn1_printable_string :b
       end
@@ -1239,7 +1311,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
         asn1_set_of OpenSSL::ASN1::Integer, :b, { optional: true }
         asn1_boolean :c
@@ -1261,7 +1333,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_printable_string :a, { optional: true }
         asn1_integer :b
       end
@@ -1270,7 +1342,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_template template, :a, { optional: true }
         asn1_integer :b
       end
@@ -1309,7 +1381,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_null
         asn1_integer :a
       end
@@ -1337,7 +1409,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -1345,7 +1417,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
         
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_template template, :a
         asn1_template template, :b, { optional: true }
         asn1_template template, :c, { default:  template.new }
@@ -1362,7 +1434,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -1384,7 +1456,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     helper = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a, { tag: 1, tagging: :EXPLICIT }
       end
     end
@@ -1392,7 +1464,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_template helper, :a, { tag: 0, tagging: :EXPLICIT }
       end
     end
@@ -1412,7 +1484,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a, { optional: true }
         asn1_choice :b do
           asn1_integer nil, { tag: 0, tagging: :EXPLICIT }
@@ -1446,7 +1518,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Set do
+      asn1_declare :SET do
         asn1_integer :a
       end
     end
@@ -1454,7 +1526,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     other = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -1471,7 +1543,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_octet_string :a
       end
     end
@@ -1489,7 +1561,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_octet_string :a
       end
     end
@@ -1507,7 +1579,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_printable_string :a
         asn1_integer :b, { tag: 0, tagging: :IMPLICIT } 
         asn1_integer :c, { tag:1, tagging: :EXPLICIT }
@@ -1571,6 +1643,21 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
 
+  def test_nested_choices_not_possible
+    assert_raises OpenSSL::ASN1::ASN1Error do
+      template = Class.new do
+        include OpenSSL::ASN1::Template
+
+        asn1_declare :CHOICE do
+          asn1_choice :a do
+            asn1_octet_string
+            asn1_integer
+          end
+        end
+      end  
+    end
+  end
+  
   private
   
   def assert_universal(tag, asn1)
@@ -1603,7 +1690,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         send(prim_declare, :name)
       end
     end
@@ -1628,7 +1715,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         send(cons_declare, OpenSSL::ASN1::Integer, :a)
       end
     end
@@ -1659,7 +1746,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -1667,7 +1754,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         send(cons_declare, template, :a)
       end
     end
@@ -1708,7 +1795,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         send(cons_declare, OpenSSL::ASN1::Integer, :a, { tag: 0, tagging: tagging })
       end
     end
@@ -1743,7 +1830,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -1751,7 +1838,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         send(cons_declare, template, :a, { tag: 0, tagging: tagging })
       end
     end
@@ -1801,7 +1888,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_choice :a do
           asn1_integer
           asn1_boolean
@@ -1832,7 +1919,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_choice :a do
           asn1_integer nil, { tag: 0, tagging: tagging }
           asn1_integer nil, { tag: 1, tagging: tagging }
@@ -1875,7 +1962,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template1 = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -1883,7 +1970,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template2 = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :a
       end
     end
@@ -1891,7 +1978,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_choice :choice do
           asn1_template template1, nil, { tag: 0, tagging: tagging }
           asn1_template template2, nil, { tag: 1, tagging: tagging }
@@ -1945,7 +2032,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_choice :a do
           asn1_integer
           asn1_any
@@ -1987,7 +2074,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :b
       end
     end
@@ -1995,7 +2082,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     container = Class.new do
       include OpenSSL::ASN1::Template
       
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_choice :a do
           send(cons_declare, template)
         end
@@ -2034,7 +2121,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         send(cons_declare, OpenSSL::ASN1::Boolean, :a, { default: [true, false] })
         asn1_integer :b
       end
@@ -2055,7 +2142,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         send(cons_declare, OpenSSL::ASN1::Boolean, :a, { default: [true, false] })
         asn1_integer :b
       end
@@ -2064,7 +2151,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     helper = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_integer :b
       end
     end
@@ -2080,7 +2167,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(1, p.b)
   end
 
-  def check_infinite_length_declared(cons)
+  def check_infinite_length_declared(cons, klass)
      template = Class.new do
       include OpenSSL::ASN1::Template
 
@@ -2093,7 +2180,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     t.a = 1
     t.set_infinite_length(true)
     asn1 = t.to_asn1
-    assert_universal_infinite(OpenSSL::ASN1::CLASS_TAG_MAP[cons], asn1)
+    assert_universal_infinite(OpenSSL::ASN1::CLASS_TAG_MAP[klass], asn1)
     assert_equal(2, asn1.value.size)
     int = asn1.value[0]
     assert_universal(OpenSSL::ASN1::INTEGER, int)
@@ -2112,7 +2199,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_octet_string :a
       end
     end
@@ -2153,7 +2240,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     template = Class.new do
       include OpenSSL::ASN1::Template
 
-      asn1_declare OpenSSL::ASN1::Sequence do
+      asn1_declare :SEQUENCE do
         asn1_octet_string :a, { tag: 0, tagging: tagging }
       end
     end

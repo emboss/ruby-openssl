@@ -133,7 +133,7 @@ module OpenSSL::ASN1
           return Encoder.to_asn1_obj(self, deff)
         end
       end
-      raise OpenSSL::ASN1::ASN1Exception.new("No definition found for #{iv}")
+      raise OpenSSL::ASN1::ASN1Error.new("No definition found for #{iv}")
     end
 
     def to_der_iv(name)
@@ -191,14 +191,20 @@ module OpenSSL::ASN1
       
     module TemplateMethods
         
-      def asn1_declare(type)
-        @_definition = { type: type, 
+      def asn1_declare(template_type)
+        @_definition = { type: type_for_sym(template_type),
                          options: {}, 
                          inner_def: Array.new, 
-                         encoder: ConstructiveEncoder,
-                         parser: ConstructiveParser }
+                         encoder: encoder_for_sym(template_type),
+                         parser: parser_for_sym(template_type) }
         cur_def = @_definition
-                  
+
+        if template_type == :CHOICE
+          attr_accessor :value
+          @_definition[:name] = :value
+          @_definition[:setter] = :value=
+        end
+
         eigenclass = class << self; self; end
         eigenclass.instance_eval do
           
@@ -248,6 +254,9 @@ module OpenSSL::ASN1
           end
             
           define_method :asn1_choice do |name, opts={}, &proc|
+            if template_type == :CHOICE
+              raise OpenSSL::ASN1::ASN1Error.new("Nested choices are not allowed.")
+            end
             attr_accessor name
             tmp_def = cur_def
             cur_def = { name: name,
@@ -262,6 +271,8 @@ module OpenSSL::ASN1
           end
               
         end
+
+
           
         declare_prim(:asn1_boolean, OpenSSL::ASN1::Boolean)
         declare_prim(:asn1_integer, OpenSSL::ASN1::Integer)
@@ -290,7 +301,31 @@ module OpenSSL::ASN1
         
         yield
       end
-        
+
+      private
+
+      def type_for_sym(sym)
+        case sym
+          when :SEQUENCE then OpenSSL::ASN1::Sequence
+          when :SET then OpenSSL::ASN1::Set
+          when :CHOICE then nil
+          else raise OpenSSL::ASN1::ASN1Error.new("Not supported: #{sym}")
+        end
+      end
+
+      def encoder_for_sym(sym)
+          case sym
+            when :CHOICE then ChoiceEncoder
+            else ConstructiveEncoder
+          end
+      end
+
+      def parser_for_sym(sym)
+          case sym
+            when :CHOICE then ChoiceParser
+            else ConstructiveParser
+          end
+      end
     end
       
     class ChoiceValue
