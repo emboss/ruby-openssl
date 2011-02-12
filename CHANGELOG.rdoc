@@ -1,4 +1,7 @@
 === 0.2.0 / 2011-02-12 [emboss]
+* Performance improvements
+
+=== 0.2.0 / 2011-02-12 [emboss]
 * Defaults are no longer encoded.
 
  === 0.2.0 / 2011-02-12 [emboss]

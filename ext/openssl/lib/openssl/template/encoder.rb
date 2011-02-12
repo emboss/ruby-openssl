@@ -9,14 +9,6 @@ module OpenSSL::ASN1::Template
   #return the ASN1Data value. If the corresponding
   #data in the template is nil, then nil shall also
   #be returned.
-  module Encoder
-    class << self
-      def to_asn1_obj(obj, definition)
-        definition[:encoder].to_asn1(obj, definition)
-      end
-    end
-  end
-  
   module TypeEncoder 
     def type_new(value, type, tag, tagging, inf_length=nil, tag_class=nil)
       unless tag
@@ -183,7 +175,7 @@ module OpenSSL::ASN1::Template
         value = Array.new
 
         inner_def.each do |element|
-          inner_obj = Encoder.to_asn1_obj(obj, element)
+          inner_obj = element[:encoder].to_asn1(obj, element)
           value << inner_obj if inner_obj
         end
         
@@ -205,8 +197,8 @@ module OpenSSL::ASN1::Template
         value = obj.send(name)
         value = value_raise_or_default(value, name, options)
         return nil if value == nil || value == options[:default]
-        val_def = value.class.instance_variable_get(:@_definition).merge({ options: options })
-        Encoder.to_asn1_obj(value, val_def)
+        val_def = TemplateUtil.dup_definition_with_opts(value.class.instance_variable_get(:@_definition), options)
+        val_def[:encoder].to_asn1(value, val_def)
       end
     end
   end
@@ -363,7 +355,7 @@ module OpenSSL::ASN1::Template
       def get_definition(choice_val, inner_def)
         inner_def.each do |deff|
           if choice_val.type == deff[:type] && choice_val.tag == deff[:options][:tag]
-            return deff.merge({})
+            return deff
           end
         end
         raise OpenSSL::ASN1::ASN1Error.new("Found no definition for "+

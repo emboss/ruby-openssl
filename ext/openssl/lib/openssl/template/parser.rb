@@ -7,13 +7,6 @@ module OpenSSL::ASN1::Template
   #a default exists, then this default must may be set as an instance
   #variable (it should have already been set when initializing the
   #object), but the parse method shall return false.
-  module Parser
-    class << self
-      def parse_recursive(obj, asn1, definition)
-        definition[:parser].parse(obj, asn1, definition)
-      end
-    end
-  end
   
   module TypeParser
     def check_size_cons(size, inner_def, inf_length)
@@ -73,7 +66,7 @@ module OpenSSL::ASN1::Template
       min_size
     end
           
-    def match(asn1, type, name, options)
+    def match(asn1, type, name, options, force_optional=false)
       tag = options[:tag]
       real_tag = tag_or_default(tag, type)
       if asn1.tag == real_tag
@@ -86,7 +79,7 @@ module OpenSSL::ASN1::Template
         tmp_asn1 = unpack_tagged(asn1, type, options[:tagging])
         return tmp_asn1.value, true
       else
-        unless options[:optional] || options[:default] != nil
+        unless options[:optional] || options[:default] != nil || force_optional
           name = name || 'unnamed'
           raise OpenSSL::ASN1::ASN1Error.new(
             "Mandatory value #{name} could not be parsed. "+
@@ -189,7 +182,7 @@ module OpenSSL::ASN1::Template
           inner_asn1 = seq[i]
           if !inner_asn1
             handle_missing(obj, deff)
-          elsif Parser.parse_recursive(obj, inner_asn1, deff)
+          elsif deff[:parser].parse(obj, inner_asn1, deff)
             i += 1
           end
         end
@@ -341,6 +334,10 @@ module OpenSSL::ASN1::Template
         setter = definition[:setter]
         
         deff = match_inner_def(asn1, definition)
+        unless deff 
+          deff = match_inner_def_any(asn1, definition)
+        end
+        
         return false unless deff
         return true unless name
 
@@ -368,32 +365,31 @@ module OpenSSL::ASN1::Template
         inner_def = definition[:inner_def]
         outer_opts = definition[:options]
         default = outer_opts[:default]
-        any_defs = Array.new
         
         inner_def.each do |deff|
-          options = deff[:options].merge({ optional: true })
           if deff[:type] == OpenSSL::ASN1::ASN1Data #asn1_any
-            any_defs << deff
             next
           else
-            value, matched = match(asn1, deff[:type], setter, options)
+            value, matched = match(asn1, deff[:type], setter, deff[:options], true)
             return deff if matched
           end
         end
-            
-        #any fallback
-        unless any_defs.empty?
-          any_defs.each do |any_def|  
-            tag = any_def[:options][:tag]
+        nil
+      end
+      
+      def match_inner_def_any(asn1, definition)
+        definition[:inner_def].each do |deff|
+          if deff[:type] == OpenSSL::ASN1::ASN1Data #asn1_any
+            tag = deff[:options][:tag]
             if tag
-              return any_def if asn1.tag == tag
+              return deff if asn1.tag == tag
             else
-              return any_def
+              return deff
             end
           end
         end
-          
-        unless outer_opts[:optional] || default
+        options = definition[:options]
+        unless options[:optional] || options[:default]
           raise OpenSSL::ASN1::ASN1Error.new(
             "Mandatory Choice value #{setter} not found.")
         end

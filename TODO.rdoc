@@ -5,8 +5,6 @@
 Currently the allowed sizes are generally (0..inf). It
 should also be possible to restrict this to e.g. (4..6) etc.
 
-=== declare :SET_OF, :SEQUENCE_OF
-
 === asn1_sequence_of_choice, asn1_set_of_choice
 
 Could be provided by creating a temporary choice type that is attached to

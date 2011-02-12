@@ -55,6 +55,22 @@ module OpenSSL::ASN1::Template
       tmp_type = real_type(type)
       default_tag_of_class(tmp_type)
     end
+    
+    def self.dup_definition_with_opts(definition, opts)
+      if opts
+        {
+          type: definition[:type],
+          name: definition[:name],
+          setter: definition[:setter],
+          inner_def: definition[:inner_def],
+          options: definition[:options].merge(opts),
+          parser: definition[:parser],
+          encoder: definition[:encoder]
+        }
+      else
+        definition
+      end
+    end
         
   end
 end
@@ -75,10 +91,10 @@ module OpenSSL::ASN1
       
     def self.included(base)
       base.extend TemplateMethods
-      base.define_singleton_method :parse do |asn1, options={}, return_nil=false|
-        definition = @_definition.merge({ options: options })
+      base.define_singleton_method :parse do |asn1, options=nil, return_nil=false|
+        definition = TemplateUtil.dup_definition_with_opts(@_definition, options)
         
-        unless asn1 || options[:optional]
+        unless asn1 || (options && options[:optional])
           raise OpenSSL::ASN1::ASN1Error.new(
           "Mandatory parameter not set. Type: #{definition[:type]} " +
           " Name: #{definition[:name]}")
@@ -88,12 +104,12 @@ module OpenSSL::ASN1
           
         unless asn1.respond_to?(:to_der)
           asn1 = OpenSSL::ASN1.decode(asn1)
-          obj = base.new
+          obj = base.new(nil, true)
         else
-          obj = base.new(options)  
+          obj = base.new(options, true)  
         end
         
-        unless Parser.parse_recursive(obj, asn1, definition)
+        unless definition[:parser].parse(obj, asn1, definition)
           unless return_nil
             raise OpenSSL::ASN1::ASN1Error.new("Could not match
               type #{definition[:type]}")
@@ -106,13 +122,13 @@ module OpenSSL::ASN1
       end
     end
       
-    def initialize(options={})
-      unless options.is_a?(Hash)
+    def initialize(options=nil, parse=false)
+      if options != nil && !options.is_a?(Hash)
         parse_raw(options)
       else
         @options = options
-        definition = self.class.instance_variable_get(:@_definition).merge({ options: options })
-        init_mandatory_templates_defaults(definition)
+        @defaults = {}
+        init_mandatory_templates_defaults(self.class.instance_variable_get(:@_definition), parse)
       end
     end
       
@@ -122,15 +138,14 @@ module OpenSSL::ASN1
     end
 
     def to_asn1
-      definition = self.class.instance_variable_get(:@_definition).merge({ options: @options })
-      Encoder.to_asn1_obj(self, definition)
+      definition = TemplateUtil.dup_definition_with_opts(self.class.instance_variable_get(:@_definition), @options)
+      definition[:encoder].to_asn1(self, definition)
     end
 
     def to_asn1_iv(iv)
-      definition = self.class.instance_variable_get(:@_definition).merge({})
-      definition[:inner_def].each do |deff|
+      self.class.instance_variable_get(:@_definition)[:inner_def].each do |deff|
         if deff[:name] && deff[:name] == iv
-          return Encoder.to_asn1_obj(self, deff)
+          return deff[:encoder].to_asn1(self, deff)
         end
       end
       raise OpenSSL::ASN1::ASN1Error.new("No definition found for #{iv}")
@@ -168,31 +183,28 @@ module OpenSSL::ASN1
     def parse_raw(raw)
       asn1 = OpenSSL::ASN1.decode(raw)
       definition = self.class.instance_variable_get(:@_definition)
-      Parser.parse_recursive(self, asn1, definition)
+      definition[:parser].parse(self, asn1, definition)
     end
       
-    def init_mandatory_templates_defaults(definition)
-      inner_def = definition[:inner_def]
+    def init_mandatory_templates_defaults(definition, parse)
+      definition[:inner_def].each do |deff|
+        unless parse
+          type = deff[:type]
+          options = deff[:options]
+          mandatory = !(options[:optional] || options[:default])
+          if mandatory && deff[:name] && type && type.include?(Template)
+            instance = type.new(options)
+            send(deff[:setter], instance)
+          end
+        end
         
-      if inner_def
-        inner_def.each do |deff|
-          init_mandatory_templates_defaults(deff)
-        end
-      else
-        type = definition[:type]
-        options = definition[:options]
-        default = options[:default]
-        mandatory = !(options[:optional] || default)
-        if mandatory && definition[:name] && type && type.include?(Template)
-          instance = type.new(options)
-          send(definition[:setter], instance)
-        end
+        default = deff[:options][:default]
         if default != nil
-          send(definition[:setter], default)
+          send(deff[:setter], default)
         end
       end
     end
-      
+    
     module TemplateMethods
         
       def asn1_declare(template_type, inner_type=nil)
@@ -302,7 +314,7 @@ module OpenSSL::ASN1
         
         yield if block_given?
       end
-
+      
       private
 
       def type_for_sym(sym, type)
