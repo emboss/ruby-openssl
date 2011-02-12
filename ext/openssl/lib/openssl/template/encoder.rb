@@ -35,7 +35,7 @@ module OpenSSL::ASN1::Template
     end
     
     def value_raise_or_default(value, name, options)
-      optional = options[:optional]
+      optional = options[:optional] if options
       default = options[:default]
       
       unless value
@@ -57,12 +57,12 @@ module OpenSSL::ASN1::Template
       def to_asn1(obj, definition)
         options = definition[:options]
         type = definition[:type]
-        tag = options[:tag]
+        tag = options[:tag] 
         tagging = options[:tagging]
         name = definition[:name]
 
         if type == OpenSSL::ASN1::Null
-          return nil if options[:optional]
+          return nil if options && options[:optional]
           return type_new(nil, type, tag, tagging)
         end
 

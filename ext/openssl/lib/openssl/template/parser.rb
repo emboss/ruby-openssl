@@ -297,7 +297,7 @@ module OpenSSL::ASN1::Template
             attr_accessor :object
           end
           tmp = tmp_class.new
-          deff = { type: inner_type, name: :object, setter: :object=, options: {} }
+          deff = { type: inner_type, name: :object, setter: :object= }
         end
             
         seq.each do |val|

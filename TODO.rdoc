@@ -1,5 +1,9 @@
 == OpenSSL::ASN1::Template
 
+=== options are nil per default
+
+Respect the new default (nil) everywhere
+
 === asn1_sequence_of, asn1_set_of
 
 Currently the allowed sizes are generally (0..inf). It

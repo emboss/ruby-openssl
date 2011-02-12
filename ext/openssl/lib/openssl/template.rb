@@ -37,8 +37,7 @@ module OpenSSL::ASN1::Template
       if tag
         tag
       else
-        tmp_type = real_type(type)
-        default_tag_of_class(tmp_type)
+        default_tag_of_class(type)
       end
     end
         
@@ -127,7 +126,6 @@ module OpenSSL::ASN1
         parse_raw(options)
       else
         @options = options
-        @defaults = {}
         init_mandatory_templates_defaults(self.class.instance_variable_get(:@_definition), parse)
       end
     end
@@ -209,7 +207,7 @@ module OpenSSL::ASN1
         
       def asn1_declare(template_type, inner_type=nil)
         @_definition = { type: type_for_sym(template_type, inner_type),
-                         options: {}, 
+                         options: nil, 
                          inner_def: Array.new, 
                          encoder: encoder_for_sym(template_type),
                          parser: parser_for_sym(template_type) }
@@ -229,7 +227,7 @@ module OpenSSL::ASN1
                                           parser=PrimitiveParser,
                                           encoder=PrimitiveEncoder|
             eigenclass.instance_eval do
-              define_method meth_name do |name=nil, opts={}|
+              define_method meth_name do |name=nil, opts=nil|
                 attr_accessor name if name
                 
                 deff = { type: type, 
@@ -245,7 +243,7 @@ module OpenSSL::ASN1
             
           define_method :declare_special_typed do |meth_name, encoder, parser|
             eigenclass.instance_eval do
-              define_method meth_name do |type, name=nil, opts={}|
+              define_method meth_name do |type, name=nil, opts=nil|
                 attr_accessor name if name
                 deff = { type: type,
                          name: name,
@@ -258,7 +256,7 @@ module OpenSSL::ASN1
             end
           end
             
-          define_method :asn1_any do |name=nil, opts={}|
+          define_method :asn1_any do |name=nil, opts=nil|
             attr_accessor name if name
             deff = { type: OpenSSL::ASN1::ASN1Data,
                      name: name,
@@ -269,7 +267,7 @@ module OpenSSL::ASN1
             cur_def[:inner_def] << deff
           end
             
-          define_method :asn1_choice do |name, opts={}, &proc|
+          define_method :asn1_choice do |name, opts=nil, &proc|
             attr_accessor name
             tmp_def = cur_def
             cur_def = { name: name,
