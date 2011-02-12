@@ -75,7 +75,6 @@ module OpenSSL::ASN1
       
     def self.included(base)
       base.extend TemplateMethods
-      tmp_self = self
       base.define_singleton_method :parse do |asn1, options={}, return_nil=false|
         definition = @_definition.merge({ options: options })
         
@@ -125,6 +124,20 @@ module OpenSSL::ASN1
     def to_asn1
       definition = self.class.instance_variable_get(:@_definition).merge({ options: @options })
       Encoder.to_asn1_obj(self, definition)
+    end
+
+    def to_asn1_iv(iv)
+      definition = self.class.instance_variable_get(:@_definition).merge({})
+      definition[:inner_def].each do |deff|
+        if deff[:name] && deff[:name] == iv
+          return Encoder.to_asn1_obj(self, deff)
+        end
+      end
+      raise OpenSSL::ASN1::ASN1Exception.new("No definition found for #{iv}")
+    end
+
+    def to_der_iv(name)
+      to_asn1_iv(name).to_der
     end
 
     def set_infinite_length(value)

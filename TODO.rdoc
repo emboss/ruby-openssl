@@ -19,18 +19,8 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 
 === Tests 
 
-* Infinite length for asn1_any
+* TBD
 
 === String encoders
 
 Introduce encoders that force a certain encoding that is specific to the string type?
-
-=== Being able to call to_asn1/to_der at any level, not just for types
-
- For hashing encodings, it might be desirable to get the exact DER encoding
- of primitives. Currently this is only possible for Template types. An instance
- method being passed the symbol of the primitive instance variable might do
- the trick.
-
-
-

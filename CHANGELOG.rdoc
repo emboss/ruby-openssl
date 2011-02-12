@@ -1,4 +1,12 @@
-=== 0.2.0 / 2011-02-11 [emboss]
+=== 0.2.0 / 2011-02-12 [emboss]
+* Encodings of instance variables is now available
+  for primitives
+
+It is now possible to get the encoding of each subelement of
+the entire Template, not only for Template types, but for
+primitives, too.
+
+ === 0.2.0 / 2011-02-11 [emboss]
 * Implemented infinite length parsing for primitives
 
 === 0.2.0 / 2011-02-09 [emboss]

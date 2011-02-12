@@ -1117,6 +1117,43 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     check_infinite_length_prim_tagged(:EXPLICIT, [2, 2, 1])
   end
 
+  def test_infinite_length_any
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_any :a
+      end
+    end
+
+    t = template.new
+    val = OpenSSL::ASN1::OctetString.new("\x01")
+    inf = OpenSSL::ASN1::Constructive.new([val, OpenSSL::ASN1::EndOfContent.new], OpenSSL::ASN1::OCTET_STRING)
+    inf.infinite_length = true
+    t.a = inf
+    asn1 = t.to_asn1
+
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    cons = asn1.value.first
+    assert_universal_infinite(OpenSSL::ASN1::OCTET_STRING, cons)
+    assert_equal(2, cons.value.size)
+    oct = cons.value[0]
+    assert_universal(OpenSSL::ASN1::OCTET_STRING, oct)
+    assert_equal("\x01", oct.value)
+    assert_universal(OpenSSL::ASN1::EOC, cons.value[1])
+
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(true, p.a.is_a?(OpenSSL::ASN1::Constructive))
+    assert_equal(true, p.a.infinite_length)
+    assert_equal(2, p.a.value.size)
+    assert_equal(true, p.a.value[0].is_a?(OpenSSL::ASN1::OctetString))
+    assert_equal("\x01", p.a.value[0].value)
+    assert_equal(true, p.a.value[1].is_a?(OpenSSL::ASN1::EndOfContent))
+    assert_equal(der, p.to_der)
+  end
+
   def test_parse_raw
     template = Class.new do
       include OpenSSL::ASN1::Template
@@ -1464,6 +1501,74 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(true, t.a.instance_variable_get(:@infinite_length))
     sizes = t.a.instance_variable_get(:@infinite_length_sizes)
     assert_equal([2, 2], sizes)
+  end
+  
+  def test_to_asn1_iv
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare OpenSSL::ASN1::Sequence do
+        asn1_printable_string :a
+        asn1_integer :b, { tag: 0, tagging: :IMPLICIT } 
+        asn1_integer :c, { tag:1, tagging: :EXPLICIT }
+        asn1_integer :d, { default: 1 }
+        asn1_null
+        asn1_bit_string :e, { optional: true }
+        asn1_choice :f do
+          asn1_octet_string
+          asn1_integer nil, { tag: 2, tagging: :IMPLICIT }
+        end
+      end
+    end
+    
+    t = template.new
+    t.a = 'a'
+    t.b = 1
+    t.c = 2
+    t.f = OpenSSL::ASN1::Template::ChoiceValue.new(OpenSSL::ASN1::Integer, 3, 2)
+    asn1 = t.to_asn1_iv(:a)
+    assert_universal(OpenSSL::ASN1::PRINTABLESTRING, asn1)
+    assert_equal('a', asn1.value)
+    asn2 = t.to_asn1_iv(:b)
+    assert_tagged(0, :IMPLICIT, asn2)
+    assert_equal(1, asn2.value)
+    asn3 = t.to_asn1_iv(:c)
+    assert_tagged(1, :EXPLICIT, asn3)
+    assert_equal(1, asn3.value.size)
+    assert_universal(OpenSSL::ASN1::INTEGER, asn3.value[0])
+    assert_equal(2, asn3.value[0].value)
+    asn4 = t.to_asn1_iv(:d)
+    assert_universal(OpenSSL::ASN1::INTEGER, asn4)
+    assert_equal(1, asn4.value)
+    asn5 = t.to_asn1_iv(:e)
+    assert_nil(asn5)
+    asn6 = t.to_asn1_iv(:f)
+    assert_tagged(2, :IMPLICIT, asn6)
+    assert_equal(3, asn6.value)
+    
+    der = t.to_der
+    p = template.parse(der)
+    asn1 = p.to_asn1_iv(:a)
+    assert_universal(OpenSSL::ASN1::PRINTABLESTRING, asn1)
+    assert_equal('a', asn1.value)
+    asn2 = p.to_asn1_iv(:b)
+    assert_tagged(0, :IMPLICIT, asn2)
+    assert_equal(1, asn2.value)
+    asn3 = p.to_asn1_iv(:c)
+    assert_tagged(1, :EXPLICIT, asn3)
+    assert_equal(1, asn3.value.size)
+    assert_universal(OpenSSL::ASN1::INTEGER, asn3.value[0])
+    assert_equal(2, asn3.value[0].value)
+    asn4 = p.to_asn1_iv(:d)
+    assert_universal(OpenSSL::ASN1::INTEGER, asn4)
+    assert_equal(1, asn4.value)
+    asn5 = p.to_asn1_iv(:e)
+    assert_nil(asn5)
+    asn6 = p.to_asn1_iv(:f)
+    assert_tagged(2, :IMPLICIT, asn6)
+    assert_equal(3, asn6.value)
+    
+    assert_equal(der, p.to_der)
   end
 
   private
