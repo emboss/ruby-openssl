@@ -191,15 +191,15 @@ module OpenSSL::ASN1
       
     module TemplateMethods
         
-      def asn1_declare(template_type)
-        @_definition = { type: type_for_sym(template_type),
+      def asn1_declare(template_type, inner_type=nil)
+        @_definition = { type: type_for_sym(template_type, inner_type),
                          options: {}, 
                          inner_def: Array.new, 
                          encoder: encoder_for_sym(template_type),
                          parser: parser_for_sym(template_type) }
         cur_def = @_definition
 
-        if template_type == :CHOICE
+        unless template_type == :SEQUENCE || template_type == :SET
           attr_accessor :value
           @_definition[:name] = :value
           @_definition[:setter] = :value=
@@ -254,9 +254,6 @@ module OpenSSL::ASN1
           end
             
           define_method :asn1_choice do |name, opts={}, &proc|
-            if template_type == :CHOICE
-              raise OpenSSL::ASN1::ASN1Error.new("Nested choices are not allowed.")
-            end
             attr_accessor name
             tmp_def = cur_def
             cur_def = { name: name,
@@ -299,31 +296,39 @@ module OpenSSL::ASN1
         declare_special_typed(:asn1_sequence_of, SequenceOfEncoder, SequenceOfParser)
         declare_special_typed(:asn1_set_of, SetOfEncoder, SetOfParser)
         
-        yield
+        yield if block_given?
       end
 
       private
 
-      def type_for_sym(sym)
+      def type_for_sym(sym, type)
         case sym
           when :SEQUENCE then OpenSSL::ASN1::Sequence
           when :SET then OpenSSL::ASN1::Set
           when :CHOICE then nil
-          else raise OpenSSL::ASN1::ASN1Error.new("Not supported: #{sym}")
+          else type
         end
       end
 
       def encoder_for_sym(sym)
           case sym
+            when :SEQUENCE then ConstructiveEncoder
+            when :SET then ConstructiveEncoder
             when :CHOICE then ChoiceEncoder
-            else ConstructiveEncoder
+            when :SEQUENCE_OF then SequenceOfEncoder
+            when :SET_OF then SetOfEncoder
+            else raise OpenSSL::ASN1::ASN1Error.new("Not supported: #{sym}")
           end
       end
 
       def parser_for_sym(sym)
           case sym
+            when :SEQUENCE then ConstructiveParser
+            when :SET then ConstructiveParser
+            when :SEQUENCE_OF then SequenceOfParser
+            when :SET_OF then SetOfParser
             when :CHOICE then ChoiceParser
-            else ConstructiveParser
+            else raise OpenSSL::ASN1::ASN1Error.new("Not supported: #{sym}")
           end
       end
     end

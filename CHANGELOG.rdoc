@@ -1,4 +1,7 @@
 === 0.2.0 / 2011-02-12 [emboss]
+* Support for SET_OF and SEQUENCE_OF Templates
+
+ === 0.2.0 / 2011-02-12 [emboss]
 * Support for CHOICE Templates
 
  === 0.2.0 / 2011-02-12 [emboss]

@@ -1225,6 +1225,50 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(OpenSSL::ASN1::Boolean, bool.type)
     assert_equal(true, bool.value)
   end
+  
+  def test_declare_sequence_of
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare :SEQUENCE do
+        asn1_integer :a
+      end
+    end
+    
+    container = Class.new do
+      include OpenSSL::ASN1::Template
+      
+      asn1_declare :SEQUENCE_OF, template
+    end
+    
+    t1 = template.new
+    t1.a = 1
+    t2 = template.new
+    t2.a = 2
+    c = container.new
+    c.value = [ t1, t2 ]
+    asn1 = c.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(2, asn1.value.size)
+    s1 = asn1.value[0]
+    assert_universal(OpenSSL::ASN1::SEQUENCE, s1)
+    assert_equal(1, s1.value.size)
+    i1 = s1.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, i1)
+    assert_equal(1, i1.value)
+    s2 = asn1.value[1]
+    assert_equal(1, s2.value.size)
+    i2 = s2.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, i2)
+    assert_equal(2, i2.value)
+    
+    der = asn1.to_der
+    p = container.parse(der)
+    assert_equal(2, p.value.size)
+    assert_equal(1, p.value[0].a)
+    assert_equal(2, p.value[1].a)
+    assert_equal(der, p.to_der)
+  end
 
   def test_parse_raw
     template = Class.new do
@@ -1643,21 +1687,6 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
 
-  def test_nested_choices_not_possible
-    assert_raises OpenSSL::ASN1::ASN1Error do
-      template = Class.new do
-        include OpenSSL::ASN1::Template
-
-        asn1_declare :CHOICE do
-          asn1_choice :a do
-            asn1_octet_string
-            asn1_integer
-          end
-        end
-      end  
-    end
-  end
-  
   private
   
   def assert_universal(tag, asn1)
