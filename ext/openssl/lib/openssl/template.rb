@@ -112,7 +112,7 @@ module OpenSSL::ASN1
       else
         @options = options
         definition = self.class.instance_variable_get(:@_definition).merge({ options: options })
-        init_mandatory_templates(definition)
+        init_mandatory_templates_defaults(definition)
       end
     end
       
@@ -171,20 +171,24 @@ module OpenSSL::ASN1
       Parser.parse_recursive(self, asn1, definition)
     end
       
-    def init_mandatory_templates(definition)
+    def init_mandatory_templates_defaults(definition)
       inner_def = definition[:inner_def]
         
       if inner_def
         inner_def.each do |deff|
-          init_mandatory_templates(deff)
+          init_mandatory_templates_defaults(deff)
         end
       else
         type = definition[:type]
         options = definition[:options]
-        mandatory = !(options[:optional] || options[:default])
-        if type && type.include?(Template) && mandatory
+        default = options[:default]
+        mandatory = !(options[:optional] || default)
+        if mandatory && definition[:name] && type && type.include?(Template)
           instance = type.new(options)
-          instance_variable_set("@" + definition[:name].to_s, instance)
+          send(definition[:setter], instance)
+        end
+        if default != nil
+          send(definition[:setter], default)
         end
       end
     end

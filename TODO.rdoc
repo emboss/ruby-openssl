@@ -1,10 +1,5 @@
 == OpenSSL::ASN1::Template
 
-=== don't set default values when encoding
-
-Default values are only to be set upon parsing,
-but they must not be set when encoding
-
 === asn1_sequence_of, asn1_set_of
 
 Currently the allowed sizes are generally (0..inf). It
@@ -29,7 +24,7 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 
 === Tests 
 
-* TBD
+* Test for overriding a default value (encoding & parsing)
 
 === String encoders
 

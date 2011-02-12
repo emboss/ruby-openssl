@@ -51,7 +51,7 @@ module OpenSSL::ASN1::Template
           raise OpenSSL::ASN1::ASN1Error.new(
           "Mandatory value #{name} not set.")
         end
-        default
+        nil
       else
         value
       end  
@@ -76,7 +76,7 @@ module OpenSSL::ASN1::Template
 
         val = obj.send(name)
         value = value_raise_or_default(val, name, options)
-        return nil if value == nil
+        return nil if value == nil || value == options[:default]
 
         if value.instance_variable_get(:@infinite_length)
           return PrimitiveEncoderInfinite.to_asn1(obj, definition)
@@ -103,7 +103,7 @@ module OpenSSL::ASN1::Template
         name = definition[:name]
         val = obj.send(name)
         value = value_raise_or_default(val, name, options)
-        return nil if value == nil
+        return nil if value == nil || value == options[:default]
         
         cons_value = encode_value(value, type)
         
@@ -204,7 +204,7 @@ module OpenSSL::ASN1::Template
         name = definition[:name]
         value = obj.send(name)
         value = value_raise_or_default(value, name, options)
-        return nil if value == nil
+        return nil if value == nil || value == options[:default]
         val_def = value.class.instance_variable_get(:@_definition).merge({ options: options })
         Encoder.to_asn1_obj(value, val_def)
       end
@@ -223,7 +223,7 @@ module OpenSSL::ASN1::Template
         name = definition[:name]
         value = obj.send(name)
         value = value_raise_or_default(value, name, options)
-        return nil if value == nil
+        return nil if value == nil || value == options[:default]
         inf_length = value.instance_variable_get(:@infinite_length)
 
         tag = tag || value.tag
@@ -312,7 +312,7 @@ module OpenSSL::ASN1::Template
         tagging = options[:tagging]
         value = obj.send(name)
         value = value_raise_or_default(value, name, options)
-        return nil if value == nil
+        return nil if value == nil || value == options[:default]
         inf_length = value.instance_variable_get(:@infinite_length)
 
         seq_value = Array.new
@@ -337,7 +337,7 @@ module OpenSSL::ASN1::Template
         val = obj.send(name)
 
         value = value_raise_or_default(val, name, options)
-        return nil if value == nil
+        return nil if value == nil || value == options[:default]
         unless value.is_a? ChoiceValue
           raise ArgumentError.new("ChoiceValue expected for #{name}")
         end
