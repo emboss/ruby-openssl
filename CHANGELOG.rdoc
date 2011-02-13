@@ -1,15 +1,22 @@
 === 0.2.0 / 2011-02-13 [emboss]
+* Constructed min_size computed on class level.
+
+Prior to this, the minimum size for constructed types was 
+computed dynamically, now it is computed once when declaring
+the template type
+
+=== 0.2.0 / 2011-02-13 [emboss]
 * Added test
 * Performance improvements
 
-Got rid of the temporary objects that were used
-to parse ConstructiveOfs and UTF8 strings.
+Got rid of the temporary objects that were used to parse 
+ConstructiveOfs and UTF8 strings.
 
 === 0.2.0 / 2011-02-13 [emboss]
 * Performance improvements
 
-Splitting matching and unpacking the values on parsing
-brought further gains in performance.
+Splitting matching and unpacking the values on parsing brought 
+further gains in performance.
 
  === 0.2.0 / 2011-02-12 [emboss]
 * Performance improvements

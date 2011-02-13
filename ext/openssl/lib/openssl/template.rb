@@ -23,7 +23,7 @@ module OpenSSL::ASN1::Template
       
     def real_type(type)
       if type.respond_to?(:parse)
-        type.instance_variable_get(:@_definition)[:type]
+        type.instance_variable_get(:@definition)[:type]
       else
         type
       end
@@ -50,6 +50,7 @@ module OpenSSL::ASN1::Template
           name: definition[:name],
           setter: definition[:setter],
           inner_def: definition[:inner_def],
+          min_size: definition[:min_size],
           options: options,
           parser: definition[:parser],
           encoder: definition[:encoder]
@@ -95,7 +96,7 @@ module OpenSSL::ASN1
     def self.included(base)
       base.extend TemplateMethods
       base.define_singleton_method :parse do |asn1, options=nil, return_nil=false|
-        definition = TemplateUtil.dup_definition_with_opts(@_definition, options)
+        definition = TemplateUtil.dup_definition_with_opts(@definition, options)
         
         unless asn1 || (options && options[:optional])
           raise OpenSSL::ASN1::ASN1Error.new(
@@ -130,7 +131,7 @@ module OpenSSL::ASN1
         parse_raw(options)
       else
         @options = options
-        init_mandatory_templates_defaults(self.class.instance_variable_get(:@_definition), parse)
+        init_mandatory_templates_defaults(self.class.instance_variable_get(:@definition), parse)
       end
     end
       
@@ -140,12 +141,12 @@ module OpenSSL::ASN1
     end
 
     def to_asn1
-      definition = TemplateUtil.dup_definition_with_opts(self.class.instance_variable_get(:@_definition), @options)
+      definition = TemplateUtil.dup_definition_with_opts(self.class.instance_variable_get(:@definition), @options)
       definition[:encoder].to_asn1(self, definition)
     end
 
     def to_asn1_iv(iv)
-      self.class.instance_variable_get(:@_definition)[:inner_def].each do |deff|
+      self.class.instance_variable_get(:@definition)[:inner_def].each do |deff|
         if deff[:name] && deff[:name] == iv
           return deff[:encoder].to_asn1(self, deff)
         end
@@ -184,7 +185,7 @@ module OpenSSL::ASN1
       
     def parse_raw(raw)
       asn1 = OpenSSL::ASN1.decode(raw)
-      definition = self.class.instance_variable_get(:@_definition)
+      definition = self.class.instance_variable_get(:@definition)
       definition[:parser].parse(self, asn1, definition)
     end
       
@@ -212,17 +213,18 @@ module OpenSSL::ASN1
     module TemplateMethods
         
       def asn1_declare(template_type, inner_type=nil)
-        @_definition = { type: type_for_sym(template_type, inner_type),
+        @definition = { type: type_for_sym(template_type, inner_type),
                          options: nil, 
-                         inner_def: Array.new, 
+                         inner_def: Array.new,
+                         min_size: 0,
                          encoder: encoder_for_sym(template_type),
                          parser: parser_for_sym(template_type) }
-        cur_def = @_definition
+        cur_def = @definition
 
         unless template_type == :SEQUENCE || template_type == :SET
           attr_accessor :value
-          @_definition[:name] = :value
-          @_definition[:setter] = :value=
+          @definition[:name] = :value
+          @definition[:setter] = :value=
         end
 
         eigenclass = class << self; self; end
@@ -243,6 +245,7 @@ module OpenSSL::ASN1
                          encoder: encoder,
                          parser: parser }
                 cur_def[:inner_def] << deff
+                increase_min_size(template_type, cur_def, opts)
               end
             end
           end
@@ -258,6 +261,7 @@ module OpenSSL::ASN1
                          encoder: encoder,
                          parser: parser }
                 cur_def[:inner_def] << deff
+                increase_min_size(template_type, cur_def, opts)
               end
             end
           end
@@ -271,6 +275,7 @@ module OpenSSL::ASN1
                      encoder: AnyEncoder,
                      parser: AnyParser }
             cur_def[:inner_def] << deff
+            increase_min_size(template_type, cur_def, opts)
           end
             
           define_method :asn1_choice do |name, opts=nil, &proc|
@@ -285,6 +290,7 @@ module OpenSSL::ASN1
             proc.call
             tmp_def[:inner_def] << cur_def
             cur_def = tmp_def
+            increase_min_size(template_type, cur_def, opts)
           end
               
         end
@@ -351,6 +357,22 @@ module OpenSSL::ASN1
             else raise OpenSSL::ASN1::ASN1Error.new("Not supported: #{sym}")
           end
       end
+      
+      def increase_min_size(sym, cons_def, cur_opts)
+        if sym == :SEQUENCE || sym == :SET
+          return unless cons_def[:min_size]
+          unless cur_opts
+            cons_def[:min_size] += 1
+          else
+            default = cur_opts ? cur_opts[:default] : nil
+            optional = cur_opts ? cur_opts[:optional] : nil
+            unless optional || default != nil
+              cons_def[:min_size] += 1
+            end
+          end
+        end
+      end
+    
     end
       
     class ChoiceValue

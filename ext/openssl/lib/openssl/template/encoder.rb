@@ -170,7 +170,7 @@ module OpenSSL::ASN1::Template
       def to_asn1(obj, definition)
         value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
-        val_def = TemplateUtil.dup_definition_with_opts(value.class.instance_variable_get(:@_definition), definition[:options])
+        val_def = TemplateUtil.dup_definition_with_opts(value.class.instance_variable_get(:@definition), definition[:options])
         val_def[:encoder].to_asn1(value, val_def)
       end
     end
