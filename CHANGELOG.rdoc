@@ -1,6 +1,10 @@
 === 0.2.0 / 2011-02-12 [emboss]
 * Performance improvements
 
+Avoided having too many local variables that were drawn from the
+'options' hash. Biggest improvement was defaulting 'options' to
+nil instead of {}, what previously lead to lots of hash merges.
+
 === 0.2.0 / 2011-02-12 [emboss]
 * Defaults are no longer encoded.
 
