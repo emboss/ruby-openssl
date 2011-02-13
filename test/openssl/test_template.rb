@@ -996,6 +996,31 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     assert_equal(der, p.to_der)
   end
 
+  def test_default_override
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare :SEQUENCE do
+        asn1_integer :a, { default: 1 }
+      end
+    end
+
+    t = template.new
+    t.a = 2
+    asn1 = t.to_asn1
+
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    int = asn1.value.first
+    assert_universal(OpenSSL::ASN1::INTEGER, int)
+    assert_equal(2, int.value)
+    
+    der = asn1.to_der
+    p = template.parse(der)
+    assert_equal(2, p.a)
+    assert_equal(der, p.to_der)
+  end
+  
   def test_infinite_length_declared_sequence
      check_infinite_length_declared(:SEQUENCE, OpenSSL::ASN1::Sequence)
   end
