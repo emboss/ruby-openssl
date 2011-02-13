@@ -18,7 +18,7 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 
 === Tests 
 
-* Test for overriding a default value (encoding & parsing)
+* TBD
 
 === String encoders
 
