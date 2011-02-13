@@ -12,10 +12,6 @@ the ordinary asn1_sequence_of and asn1_set_of. the *of_choice methods might
 come in handy in situations where the namespace should not be polluted by 
 being forced to create a template for an otherwise useless ASN.1 construct.
 
-=== Multi-threaded parsing
-
-* Sequences and sets could be parsed using threads from a thread pool to boost performance
-
 === Set order
 
 * Take care of SET and SET OF ordering

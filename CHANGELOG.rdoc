@@ -1,4 +1,10 @@
-=== 0.2.0 / 2011-02-12 [emboss]
+=== 0.2.0 / 2011-02-13 [emboss]
+* Performance improvements
+
+Splitting matching and unpacking the values on parsing
+brought further gains in performance.
+
+ === 0.2.0 / 2011-02-12 [emboss]
 * Performance improvements
 
 Avoided having too many local variables that were drawn from the

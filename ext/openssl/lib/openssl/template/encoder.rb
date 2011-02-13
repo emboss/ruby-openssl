@@ -16,8 +16,7 @@ module OpenSSL::ASN1::Template
         val.infinite_length = true if inf_length
         val
       else
-        tag_class = tag_class || determine_tag_class(tag)
-        encode_explicit(value, type, tag, tagging, tag_class, inf_length)
+        encode_explicit(value, type, tag, tagging, tag_class || determine_tag_class(tag), inf_length)
       end
     end
   
@@ -35,11 +34,8 @@ module OpenSSL::ASN1::Template
     end
     
     def value_raise_or_default(value, name, options)
-      optional = optional(options)
-      default = default(options)
-      
       unless value
-        unless optional || default != nil
+        unless optional(options) || default(options) != nil
           raise OpenSSL::ASN1::ASN1Error.new(
           "Mandatory value #{name} not set.")
         end
@@ -55,23 +51,19 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
       
       def to_asn1(obj, definition)
-        tag = tag(definition[:options])
-        tagging = tagging(definition[:options])
-
         if definition[:type] == OpenSSL::ASN1::Null
           return nil if optional(definition[:options])
-          return type_new(nil, definition[:type], tag, tagging)
+          return type_new(nil, definition[:type], tag(definition[:options]), tagging(definition[:options]))
         end
 
-        val = obj.send(definition[:name])
-        value = value_raise_or_default(val, definition[:name], definition[:options])
+        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
 
         if value.instance_variable_get(:@infinite_length)
           return PrimitiveEncoderInfinite.to_asn1(obj, definition)
         end
 
-        type_new(value, definition[:type], tag, tagging)
+        type_new(value, definition[:type], tag(definition[:options]), tagging(definition[:options]))
       end
     end
   end
@@ -84,20 +76,15 @@ module OpenSSL::ASN1::Template
 
       def to_asn1(obj, definition)
         tag = tag(definition[:options])
-        tag_class = determine_tag_class(tag)
 
-        tagging = tagging(definition[:options])
-        val = obj.send(definition[:name])
-        value = value_raise_or_default(val, definition[:name], definition[:options])
+        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
         
-        cons_value = encode_value(value, definition[:type])
-        
-        encode_inf_explicit(cons_value,
+        encode_inf_explicit(encode_value(value, definition[:type]),
                             default_tag_of_type(definition[:type]),
                             tag, 
-                            tagging, 
-                            tag_class)
+                            tagging(definition[:options]),
+                            determine_tag_class(tag))
       end
 
       private
@@ -161,8 +148,6 @@ module OpenSSL::ASN1::Template
       
       def to_asn1(obj, definition)
         inf_length = obj.instance_variable_get(:@infinite_length)
-        tag = tag(definition[:options])
-        tagging = tagging(definition[:options])
         value = Array.new
 
         definition[:inner_def].each do |element|
@@ -172,7 +157,7 @@ module OpenSSL::ASN1::Template
         
         value << OpenSSL::ASN1::EndOfContent.new if inf_length
         
-        type_new(value, definition[:type], tag, tagging, inf_length)
+        type_new(value, definition[:type], tag(definition[:options]), tagging(definition[:options]), inf_length)
       end
       
     end
@@ -183,8 +168,7 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
       
       def to_asn1(obj, definition)
-        value = obj.send(definition[:name])
-        value = value_raise_or_default(value, definition[:name], definition[:options])
+        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
         val_def = TemplateUtil.dup_definition_with_opts(value.class.instance_variable_get(:@_definition), definition[:options])
         val_def[:encoder].to_asn1(value, val_def)
@@ -199,9 +183,9 @@ module OpenSSL::ASN1::Template
       def to_asn1(obj, definition)
         tag = tag(definition[:options])
         tag_class = determine_tag_class(tag)
+
         tagging = tagging(definition[:options])
-        value = obj.send(definition[:name])
-        value = value_raise_or_default(value, name, definition[:options])
+        value = value_raise_or_default(obj.send(definition[:name]), name, definition[:options])
         return nil if value == nil || value == default(definition[:options])
         inf_length = value.instance_variable_get(:@infinite_length)
 
@@ -284,10 +268,7 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
           
       def to_asn1(obj, definition, type)
-        tag = tag(definition[:options])
-        tagging = tagging(definition[:options])
-        value = obj.send(definition[:name])
-        value = value_raise_or_default(value, definition[:name], definition[:options])
+        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
         inf_length = value.instance_variable_get(:@infinite_length)
 
@@ -298,7 +279,7 @@ module OpenSSL::ASN1::Template
                        element.to_asn1 : definition[:type].new(element)
           seq_value << elem_value
         end
-        type_new(seq_value, type, tag, tagging, inf_length)
+        type_new(seq_value, type, tag(definition[:options]), tagging(definition[:options]), inf_length)
       end
     end
   end
@@ -308,9 +289,7 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
           
       def to_asn1(obj, definition)
-        val = obj.send(definition[:name])
-
-        value = value_raise_or_default(val, definition[:name], definition[:options])
+        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
         unless value.is_a? ChoiceValue
           raise ArgumentError.new("ChoiceValue expected for #{definition[:name]}")
