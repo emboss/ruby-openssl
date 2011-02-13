@@ -18,41 +18,24 @@ module OpenSSL::ASN1::Template
   module TemplateUtil
         
     def determine_tag_class(tag)
-      if tag
-        :CONTEXT_SPECIFIC
-      else
-        :UNIVERSAL
-      end
+      tag ? :CONTEXT_SPECIFIC : :UNIVERSAL
     end
       
     def real_type(type)
-      unless type.include? OpenSSL::ASN1::Template
-        type
-      else
+      if type.respond_to?(:parse)
         type.instance_variable_get(:@_definition)[:type]
+      else
+        type
       end
     end
         
     def tag_or_default(tag, type)
-      if tag
-        tag
-      else
-        default_tag_of_class(type)
-      end
-    end
-        
-    def default_tag_of_class(klass)
-      val = OpenSSL::ASN1::CLASS_TAG_MAP[klass]
-      unless val
-        raise OpenSSL::ASN1::ASN1Error.new(
-          "Universal tag for #{klass} not found")
-      end
-      val
+      tag || OpenSSL::ASN1::CLASS_TAG_MAP[type]
     end
         
     def default_tag_of_type(type)
       tmp_type = real_type(type)
-      default_tag_of_class(tmp_type)
+      OpenSSL::ASN1::CLASS_TAG_MAP[tmp_type]
     end
     
     def self.dup_definition_with_opts(definition, opts)
@@ -77,35 +60,19 @@ module OpenSSL::ASN1::Template
     end
 
     def tag(options)
-      if options
-        options[:tag]
-      else
-        nil
-      end
+      options ? options[:tag] : nil
     end
 
     def tagging(options)
-      if options
-        options[:tagging]
-      else
-        nil
-      end
+      options ? options[:tagging] : nil
     end
 
     def default(options)
-      if options
-        options[:default]
-      else
-        nil
-      end
+      options ? options[:default] : nil
     end
 
     def optional(options)
-      if options
-        options[:optional]
-      else
-        false
-      end
+      options ? options[:optional] : false
     end
 
   end
