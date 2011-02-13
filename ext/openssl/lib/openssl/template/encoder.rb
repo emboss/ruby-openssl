@@ -35,8 +35,8 @@ module OpenSSL::ASN1::Template
     end
     
     def value_raise_or_default(value, name, options)
-      optional = options[:optional] if options
-      default = options[:default]
+      optional = optional(options)
+      default = default(options)
       
       unless value
         unless optional || default != nil
@@ -55,26 +55,23 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
       
       def to_asn1(obj, definition)
-        options = definition[:options]
-        type = definition[:type]
-        tag = options[:tag] 
-        tagging = options[:tagging]
-        name = definition[:name]
+        tag = tag(definition[:options])
+        tagging = tagging(definition[:options])
 
-        if type == OpenSSL::ASN1::Null
-          return nil if options && options[:optional]
-          return type_new(nil, type, tag, tagging)
+        if definition[:type] == OpenSSL::ASN1::Null
+          return nil if optional(definition[:options])
+          return type_new(nil, definition[:type], tag, tagging)
         end
 
-        val = obj.send(name)
-        value = value_raise_or_default(val, name, options)
-        return nil if value == nil || value == options[:default]
+        val = obj.send(definition[:name])
+        value = value_raise_or_default(val, definition[:name], definition[:options])
+        return nil if value == nil || value == default(definition[:options])
 
         if value.instance_variable_get(:@infinite_length)
           return PrimitiveEncoderInfinite.to_asn1(obj, definition)
         end
 
-        type_new(value, type, tag, tagging)
+        type_new(value, definition[:type], tag, tagging)
       end
     end
   end
@@ -86,21 +83,18 @@ module OpenSSL::ASN1::Template
       DEFAULT_CHUNK_SIZE = 4096
 
       def to_asn1(obj, definition)
-        options = definition[:options]
-        type = definition[:type] 
-        tag = options[:tag]
+        tag = tag(definition[:options])
         tag_class = determine_tag_class(tag)
 
-        tagging = options[:tagging]
-        name = definition[:name]
-        val = obj.send(name)
-        value = value_raise_or_default(val, name, options)
-        return nil if value == nil || value == options[:default]
+        tagging = tagging(definition[:options])
+        val = obj.send(definition[:name])
+        value = value_raise_or_default(val, definition[:name], definition[:options])
+        return nil if value == nil || value == default(definition[:options])
         
-        cons_value = encode_value(value, type)
+        cons_value = encode_value(value, definition[:type])
         
         encode_inf_explicit(cons_value,
-                            default_tag_of_type(type),
+                            default_tag_of_type(definition[:type]),
                             tag, 
                             tagging, 
                             tag_class)
@@ -166,22 +160,19 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
       
       def to_asn1(obj, definition)
-        options = definition[:options]
-        type = definition[:type] 
-        inner_def = definition[:inner_def]
         inf_length = obj.instance_variable_get(:@infinite_length)
-        tag = options[:tag]
-        tagging = options[:tagging]
+        tag = tag(definition[:options])
+        tagging = tagging(definition[:options])
         value = Array.new
 
-        inner_def.each do |element|
+        definition[:inner_def].each do |element|
           inner_obj = element[:encoder].to_asn1(obj, element)
           value << inner_obj if inner_obj
         end
         
         value << OpenSSL::ASN1::EndOfContent.new if inf_length
         
-        type_new(value, type, tag, tagging, inf_length)
+        type_new(value, definition[:type], tag, tagging, inf_length)
       end
       
     end
@@ -192,12 +183,10 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
       
       def to_asn1(obj, definition)
-        options = definition[:options]
-        name = definition[:name]
-        value = obj.send(name)
-        value = value_raise_or_default(value, name, options)
-        return nil if value == nil || value == options[:default]
-        val_def = TemplateUtil.dup_definition_with_opts(value.class.instance_variable_get(:@_definition), options)
+        value = obj.send(definition[:name])
+        value = value_raise_or_default(value, definition[:name], definition[:options])
+        return nil if value == nil || value == default(definition[:options])
+        val_def = TemplateUtil.dup_definition_with_opts(value.class.instance_variable_get(:@_definition), definition[:options])
         val_def[:encoder].to_asn1(value, val_def)
       end
     end
@@ -208,14 +197,12 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
 
       def to_asn1(obj, definition)
-        options = definition[:options]
-        tag = options[:tag]
+        tag = tag(definition[:options])
         tag_class = determine_tag_class(tag)
-        tagging = options[:tagging]
-        name = definition[:name]
-        value = obj.send(name)
-        value = value_raise_or_default(value, name, options)
-        return nil if value == nil || value == options[:default]
+        tagging = tagging(definition[:options])
+        value = obj.send(definition[:name])
+        value = value_raise_or_default(value, name, definition[:options])
+        return nil if value == nil || value == default(definition[:options])
         inf_length = value.instance_variable_get(:@infinite_length)
 
         tag = tag || value.tag
@@ -297,21 +284,18 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
           
       def to_asn1(obj, definition, type)
-        options = definition[:options]
-        name = definition[:name]
-        inner_type = definition[:type]
-        tag = options[:tag]
-        tagging = options[:tagging]
-        value = obj.send(name)
-        value = value_raise_or_default(value, name, options)
-        return nil if value == nil || value == options[:default]
+        tag = tag(definition[:options])
+        tagging = tagging(definition[:options])
+        value = obj.send(definition[:name])
+        value = value_raise_or_default(value, definition[:name], definition[:options])
+        return nil if value == nil || value == default(definition[:options])
         inf_length = value.instance_variable_get(:@infinite_length)
 
         seq_value = Array.new
         value.each do |element|
           #inner values are either template types or primitives
           elem_value = element.respond_to?(:to_asn1) ? 
-                       element.to_asn1 : inner_type.new(element)
+                       element.to_asn1 : definition[:type].new(element)
           seq_value << elem_value
         end
         type_new(seq_value, type, tag, tagging, inf_length)
@@ -324,14 +308,12 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
           
       def to_asn1(obj, definition)
-        options = definition[:options]
-        name = definition[:name]
-        val = obj.send(name)
+        val = obj.send(definition[:name])
 
-        value = value_raise_or_default(val, name, options)
-        return nil if value == nil || value == options[:default]
+        value = value_raise_or_default(val, definition[:name], definition[:options])
+        return nil if value == nil || value == default(definition[:options])
         unless value.is_a? ChoiceValue
-          raise ArgumentError.new("ChoiceValue expected for #{name}")
+          raise ArgumentError.new("ChoiceValue expected for #{definition[:name]}")
         end
 
         tmp_def = get_definition(value, definition[:inner_def])
@@ -354,7 +336,7 @@ module OpenSSL::ASN1::Template
           
       def get_definition(choice_val, inner_def)
         inner_def.each do |deff|
-          if choice_val.type == deff[:type] && choice_val.tag == deff[:options][:tag]
+          if choice_val.type == deff[:type] && choice_val.tag == tag(deff[:options])
             return deff
           end
         end

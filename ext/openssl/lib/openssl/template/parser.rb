@@ -33,14 +33,13 @@ module OpenSSL::ASN1::Template
     end
           
     def unpack_explicit(asn1)
-      unpacked = asn1.value
-      unless unpacked.size == 1
-        unless unpacked.size == 2 && unpacked[1].tag == OpenSSL::ASN1::EOC
+      unless asn1.value.size == 1
+        unless asn1.value.size == 2 && asn1.value[1].tag == OpenSSL::ASN1::EOC
           raise OpenSSL::ASN1::ASN1Error.new(
             "Explicitly tagged value with multiple inner values")
         end    
       end
-      unpacked.first
+      asn1.value.first
     end
          
     def unpack_implicit(asn1, type)
@@ -48,7 +47,7 @@ module OpenSSL::ASN1::Template
       #implicitly tagged constructed values already contain
       #an array value; no need to en- and decode them as for 
       #primitive values
-      tmp_asn1 = OpenSSL::ASN1::ASN1Data.new(asn1.value, real_tag, :UNIVERSAL)
+      tmp_asn1 =  OpenSSL::ASN1::ASN1Data.new(asn1.value, real_tag, :UNIVERSAL)
       unless real_tag == OpenSSL::ASN1::SEQUENCE ||
              real_tag == OpenSSL::ASN1::SET
         OpenSSL::ASN1.decode(tmp_asn1.to_der)
@@ -61,29 +60,26 @@ module OpenSSL::ASN1::Template
       min_size = 0
       inner_def.each do |definition|
         options = definition[:options]
-        min_size += 1 unless options[:optional] || options[:default] != nil
+        min_size += 1 unless optional(options) || default(options) != nil
       end
       min_size
     end
           
     def match(asn1, type, name, options, force_optional=false)
-      tag = options[:tag]
-      real_tag = tag_or_default(tag, type)
-      if asn1.tag == real_tag
-        tag_class = determine_tag_class(tag)
-        unless asn1.tag_class == tag_class
+      tag = tag(options)
+      if asn1.tag == tag_or_default(tag, type)
+        unless asn1.tag_class == determine_tag_class(tag)
           raise OpenSSL::ASN1::ASN1Error.new(
-            "Tag class mismatch. Expected: #{tag_class} " +
+            "Tag class mismatch. Expected: #{determine_tag_class(tag)} " +
             "Got: #{asn1.tag_class}")
         end
-        tmp_asn1 = unpack_tagged(asn1, type, options[:tagging])
-        return tmp_asn1.value, true
+        return unpack_tagged(asn1, type, tagging(options)).value, true
       else
-        unless options[:optional] || options[:default] != nil || force_optional
+        unless optional(options) || default(options) != nil || force_optional
           name = name || 'unnamed'
           raise OpenSSL::ASN1::ASN1Error.new(
             "Mandatory value #{name} could not be parsed. "+
-            "Expected tag: #{real_tag} Got: #{asn1.tag}")
+            "Expected tag: #{tag_or_default(tag(options), type)} Got: #{asn1.tag}")
         end
         return nil, false
       end
@@ -96,18 +92,14 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
           
       def parse(obj, asn1, definition)
-        type = definition[:type]
-        setter = definition[:setter]
-        options = definition[:options]
-                        
         if asn1.infinite_length
           return PrimitiveParserInfinite.parse(obj, asn1, definition)
         end
           
-        value, matched = match(asn1, type, setter, options)
+        value, matched = match(asn1, definition[:type], definition[:setter], definition[:options])
         return false unless matched
         
-        obj.send(setter, value) unless type == OpenSSL::ASN1::Null
+        obj.send(definition[:setter], value) unless definition[:type] == OpenSSL::ASN1::Null
         matched
       end
     end
@@ -118,11 +110,7 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
           
       def parse(obj, asn1, definition)
-        type = definition[:type]
-        setter = definition[:setter]
-        options = definition[:options]
-            
-        val, matched = match(asn1, type, setter, options)
+        val, matched = match(asn1, definition[:type], definition[:setter], definition[:options])
         return false unless matched
             
         unless val.respond_to?(:each)
@@ -131,9 +119,9 @@ module OpenSSL::ASN1::Template
             "expected to be of infinite length.")
         end
           
-        tag = default_tag_of_class(type)
+        tag = default_tag_of_class(definition[:type])
         
-        obj.send(setter, convert_to_definite(val, tag))
+        obj.send(definition[:setter], convert_to_definite(val, tag))
         matched
       end
       
@@ -165,20 +153,15 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
           
       def parse(obj, asn1, definition)
-        options = definition[:options]
-        inner_def = definition[:inner_def]
-        type = definition[:type]
-        inf_length = asn1.infinite_length
-            
-        seq, matched = match(asn1, type, nil, options)
+        seq, matched = match(asn1, definition[:type], nil, definition[:options])
         return false unless matched
             
         i = 0
         actual_size = seq.size
             
-        check_size_cons(actual_size, inner_def, inf_length)
+        check_size_cons(actual_size, definition[:inner_def], asn1.infinite_length)
             
-        inner_def.each do |deff|
+        definition[:inner_def].each do |deff|
           inner_asn1 = seq[i]
           if !inner_asn1
             handle_missing(obj, deff)
@@ -187,7 +170,7 @@ module OpenSSL::ASN1::Template
           end
         end
               
-        if inf_length
+        if asn1.infinite_length
           unless seq[i].tag == OpenSSL::ASN1::EOC
             raise OpenSSL::ASN1::ASN1Error.new(
               "Expected EOC. Got #{seq[i].tag}")
@@ -195,7 +178,7 @@ module OpenSSL::ASN1::Template
           obj.instance_variable_set(:@infinite_length, true)
         end
               
-        num_parsed = inf_length ? i + 1 : i
+        num_parsed = asn1.infinite_length ? i + 1 : i
             
         unless actual_size == num_parsed
           raise OpenSSL::ASN1::ASN1Error.new(
@@ -208,9 +191,7 @@ module OpenSSL::ASN1::Template
       private 
           
       def handle_missing(obj, deff)
-        options = deff[:options]
-        default = options[:default]
-        unless options[:optional] || default != nil
+        unless optional(deff[:options]) || default(deff[:options]) != nil
           raise OpenSSL::ASN1::ASN1Error.new(
             "Mandatory value #{deff[:name]} is missing.")
         end
@@ -224,12 +205,10 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
           
       def parse(obj, asn1, definition)
-        setter = definition[:setter]
-            
         instance = definition[:type].parse(asn1, definition[:options], true)
         return false unless instance
             
-        obj.send(setter, instance) #TODO if setter ?
+        obj.send(definition[:setter], instance) #TODO if setter ?
         true
       end
     end
@@ -240,20 +219,17 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
 
       def parse(obj, asn1, definition)
-        setter = definition[:setter]
-        options = definition[:options]
-            
-        if options[:optional]
-          if (options[:tag])
+        if optional(definition[:options])
+          if tag(definition[:options])
             #won't raise, tag prevents trouble with type==nil
-            value, matched = match(asn1, nil, setter, options)
+            value, matched = match(asn1, nil, definition[:setter], definition[:options])
             return false unless matched
           else
             OpenSSL::ASN1::ASN1Error.new("Cannot unambiguously assign ASN.1 Any")
           end
         end
         
-        obj.send(setter, asn1)
+        obj.send(definition[:setter], asn1)
         true
       end
     end
@@ -263,7 +239,7 @@ module OpenSSL::ASN1::Template
     class << self
       
       def parse(obj, asn1, definition)
-        ConstructiveOfParser.parse(obj, asn1, definition, OpenSSL::ASN1::Sequence)            
+        ConstructiveOfParser.parse(obj, asn1, definition, OpenSSL::ASN1::Sequence)
       end
     end
   end
@@ -282,13 +258,9 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
           
       def parse(obj, asn1, definition, type)
-        options = definition[:options]
-        inner_type = definition[:type]
-        is_template = inner_type.include? OpenSSL::ASN1::Template
-        setter = definition[:setter]
-        inf_length = asn1.infinite_length
-                        
-        seq, matched = match(asn1, type, setter, options)
+        is_template = definition[:type].include? OpenSSL::ASN1::Template
+
+        seq, matched = match(asn1, type, definition[:setter], definition[:options])
         return false unless matched
             
         ret = Array.new
@@ -297,7 +269,7 @@ module OpenSSL::ASN1::Template
             attr_accessor :object
           end
           tmp = tmp_class.new
-          deff = { type: inner_type, name: :object, setter: :object= }
+          deff = { type: definition[:type], name: :object, setter: :object= }
         end
             
         seq.each do |val|
@@ -308,19 +280,19 @@ module OpenSSL::ASN1::Template
             ret << tmp.object if consumed
             unless consumed
               raise OpenSSL::ASN1::ASN1.Error.new("Type mismatch in " +
-                " constructive sequence of. Expected #{inner_type}.Got: #{val}")
+                " constructive sequence of. Expected #{definition[:type]}.Got: #{val}")
             end
           else
             ret << val.value
           end
         end
               
-        if inf_length && seq[seq.size - 1].tag != OpenSSL::ASN1::EOC
+        if asn1.infinite_length && seq[seq.size - 1].tag != OpenSSL::ASN1::EOC
           raise OpenSSL::ASN1::ASN1Error.new(
             "Expected EOC. Got #{seq[i].tag}")
         end
               
-        obj.send(setter, ret)
+        obj.send(definition[:setter], ret)
         matched
       end
     end
@@ -344,7 +316,7 @@ module OpenSSL::ASN1::Template
         deff[:name] = :value
         deff[:setter] = :value=
         type = deff[:type]
-        choice_val = ChoiceValue.new(type, nil, deff[:options][:tag])
+        choice_val = ChoiceValue.new(type, nil, tag(deff[:options]))
         
         if deff[:parser] == ConstructiveParser
           container = create_object(deff[:inner_def])
@@ -363,9 +335,7 @@ module OpenSSL::ASN1::Template
       def match_inner_def(asn1, definition)
         setter = definition[:setter]
         inner_def = definition[:inner_def]
-        outer_opts = definition[:options]
-        default = outer_opts[:default]
-        
+
         inner_def.each do |deff|
           if deff[:type] == OpenSSL::ASN1::ASN1Data #asn1_any
             next
@@ -380,7 +350,7 @@ module OpenSSL::ASN1::Template
       def match_inner_def_any(asn1, definition)
         definition[:inner_def].each do |deff|
           if deff[:type] == OpenSSL::ASN1::ASN1Data #asn1_any
-            tag = deff[:options][:tag]
+            tag = tag(deff[:options])
             if tag
               return deff if asn1.tag == tag
             else
@@ -388,8 +358,7 @@ module OpenSSL::ASN1::Template
             end
           end
         end
-        options = definition[:options]
-        unless options[:optional] || options[:default]
+        unless optional(definition[:options]) || default(definition[:options])
           raise OpenSSL::ASN1::ASN1Error.new(
             "Mandatory Choice value #{setter} not found.")
         end
@@ -418,7 +387,6 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
         
       def parse(obj, asn1, definition)
-        setter = definition[:setter]
         tmp_class = Class.new do
           attr_accessor :object
         end
@@ -430,7 +398,7 @@ module OpenSSL::ASN1::Template
         ret = PrimitiveParser.parse(tmp, asn1, deff)
         return false unless ret
         utf8 = tmp.object.force_encoding('UTF-8')
-        obj.send(setter, utf8)
+        obj.send(definition[:setter], utf8)
         true
       end
     end

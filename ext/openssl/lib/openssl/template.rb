@@ -57,12 +57,17 @@ module OpenSSL::ASN1::Template
     
     def self.dup_definition_with_opts(definition, opts)
       if opts
+        options = if definition[:options]
+                    definition[:options].merge(opts)
+                  else
+                    opts
+                  end
         {
           type: definition[:type],
           name: definition[:name],
           setter: definition[:setter],
           inner_def: definition[:inner_def],
-          options: definition[:options].merge(opts),
+          options: options,
           parser: definition[:parser],
           encoder: definition[:encoder]
         }
@@ -70,7 +75,39 @@ module OpenSSL::ASN1::Template
         definition
       end
     end
-        
+
+    def tag(options)
+      if options
+        options[:tag]
+      else
+        nil
+      end
+    end
+
+    def tagging(options)
+      if options
+        options[:tagging]
+      else
+        nil
+      end
+    end
+
+    def default(options)
+      if options
+        options[:default]
+      else
+        nil
+      end
+    end
+
+    def optional(options)
+      if options
+        options[:optional]
+      else
+        false
+      end
+    end
+
   end
 end
 
@@ -187,16 +224,18 @@ module OpenSSL::ASN1
     def init_mandatory_templates_defaults(definition, parse)
       definition[:inner_def].each do |deff|
         unless parse
-          type = deff[:type]
-          options = deff[:options]
-          mandatory = !(options[:optional] || options[:default])
-          if mandatory && deff[:name] && type && type.include?(Template)
-            instance = type.new(options)
+          mandatory = !(deff[:options] && (deff[:options][:optional] || deff[:options][:default]))
+          if mandatory && deff[:name] && deff[:type] && deff[:type].include?(Template)
+            instance = deff[:type].new(deff[:options])
             send(deff[:setter], instance)
           end
         end
         
-        default = deff[:options][:default]
+        default = if (deff[:options])
+                    deff[:options][:default]
+                  else
+                    nil
+                  end
         if default != nil
           send(deff[:setter], default)
         end
