@@ -9,12 +9,11 @@ module OpenSSL::ASN1::Template
   #object), but the parse method shall return false.
   
   module TypeParser
-    def check_size_cons(size, inner_def, inf_length)
-      max_size = inner_def.size
+    def check_size_cons(size, definition, inf_length)
+      max_size = definition[:inner_def].size
       max_size += 1 if inf_length
-      min_size = min_size(inner_def)
-    
-      if size > max_size || size < min_size
+      
+      if size > max_size || size < definition[:min_size]
         raise OpenSSL::ASN1::ASN1Error.new(
           "Expected #{min_size}..#{max_size} values. Got #{size}")
       end
@@ -54,14 +53,6 @@ module OpenSSL::ASN1::Template
       else
         tmp_asn1
       end
-    end
-          
-    def min_size(inner_def)
-      min_size = 0
-      inner_def.each do |definition|
-        min_size += 1 unless optional(definition[:options]) || default(definition[:options]) != nil
-      end
-      min_size
     end
           
     def match(asn1, type, name, options, force_optional=false)
@@ -166,7 +157,7 @@ module OpenSSL::ASN1::Template
         i = 0
         actual_size = seq.size
             
-        check_size_cons(actual_size, definition[:inner_def], asn1.infinite_length)
+        check_size_cons(actual_size, definition, asn1.infinite_length)
             
         definition[:inner_def].each do |deff|
           inner_asn1 = seq[i]
