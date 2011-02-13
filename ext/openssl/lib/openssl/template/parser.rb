@@ -124,7 +124,7 @@ module OpenSSL::ASN1::Template
             "expected to be of infinite length.")
         end
           
-        tag = default_tag_of_class(definition[:type])
+        tag = OpenSSL::ASN1::CLASS_TAG_MAP[definition[:type]]
         
         obj.send(definition[:setter], convert_to_definite(value, tag))
         true
@@ -261,10 +261,6 @@ module OpenSSL::ASN1::Template
   end
       
   class ConstructiveOfParser
-    class Tmp
-      attr_accessor :object
-    end
-
     class << self
       include TypeParser, TemplateUtil
           
@@ -275,24 +271,14 @@ module OpenSSL::ASN1::Template
           return false
         end
 
-        seq = unpack_tagged(asn1, definition[:type], tagging(definition[:options])).value
+        seq = unpack_tagged(asn1, type, tagging(definition[:options])).value
 
         ret = Array.new
-        if is_template
-          tmp = Tmp.new
-          deff = { type: definition[:type], name: :object, setter: :object= }
-        end
             
         seq.each do |val|
           next if val.tag == OpenSSL::ASN1::EOC
-              
           if is_template
-            consumed = TemplateParser.parse(tmp, val, deff)
-            ret << tmp.object if consumed
-            unless consumed
-              raise OpenSSL::ASN1::ASN1.Error.new("Type mismatch in " +
-                " constructive sequence of. Expected #{definition[:type]}.Got: #{val}")
-            end
+            ret << definition[:type].parse(val, nil, false) #raise if no match
           else
             ret << val.value
           end
@@ -361,24 +347,14 @@ module OpenSSL::ASN1::Template
   end
       
   class UTF8Parser
-
-    class Tmp
-      attr_accessor :object
-    end
-
     class << self
       include TypeParser, TemplateUtil
         
       def parse(obj, asn1, definition)
-        tmp = Tmp.new
-        deff = { type: definition[:type], 
-                 name: :object, 
-                 setter: :object=, 
-                 options: definition[:options] }
-        unless PrimitiveParser.parse(tmp, asn1, deff)
+        unless PrimitiveParser.parse(obj, asn1, definition)
           return false
         end
-        obj.send(definition[:setter], tmp.object.force_encoding('UTF-8'))
+        obj.send(definition[:setter], obj.send(definition[:name]).force_encoding('UTF-8'))
         true
       end
     end

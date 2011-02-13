@@ -1,6 +1,12 @@
 === 0.2.0 / 2011-02-13 [emboss]
 * Performance improvements
 
+Got rid of the temporary objects that were used
+to parse ConstructiveOfs and UTF8 strings.
+
+=== 0.2.0 / 2011-02-13 [emboss]
+* Performance improvements
+
 Splitting matching and unpacking the values on parsing
 brought further gains in performance.
 
