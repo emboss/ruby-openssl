@@ -1,4 +1,7 @@
-=== 0.2.0 / 2011-02-13 [emboss]
+=== 0.2.0 / 2011-02-14 [emboss]
+* Minor performance improvements and refactoring
+
+ === 0.2.0 / 2011-02-13 [emboss]
 * Constructed min_size computed on class level.
 
 Prior to this, the minimum size for constructed types was 

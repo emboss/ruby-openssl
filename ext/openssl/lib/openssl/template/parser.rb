@@ -155,15 +155,13 @@ module OpenSSL::ASN1::Template
         seq = unpack_tagged(asn1, definition[:type], tagging(definition[:options])).value
             
         i = 0
-        actual_size = seq.size
-            
-        check_size_cons(actual_size, definition, asn1.infinite_length)
+
+        check_size_cons(seq.size, definition, asn1.infinite_length)
             
         definition[:inner_def].each do |deff|
-          inner_asn1 = seq[i]
-          if !inner_asn1
+          if !seq[i]
             handle_missing(obj, deff)
-          elsif deff[:parser].parse(obj, inner_asn1, deff)
+          elsif deff[:parser].parse(obj, seq[i], deff)
             i += 1
           end
         end
@@ -177,11 +175,10 @@ module OpenSSL::ASN1::Template
         end
               
         num_parsed = asn1.infinite_length ? i + 1 : i
-            
-        unless actual_size == num_parsed
+        unless seq.size == num_parsed
           raise OpenSSL::ASN1::ASN1Error.new(
             "Structural mismatch of constructed value. " +
-            "Parsed: #{num_parsed}  of #{actual_size} values")
+            "Parsed: #{num_parsed}  of #{seq.size} values")
         end
         true
       end
@@ -256,25 +253,16 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
           
       def parse(obj, asn1, definition, type)
-        is_template = definition[:type].respond_to?(:parse)
-
         unless match(asn1, type, definition[:setter], definition[:options])
           return false
         end
 
         seq = unpack_tagged(asn1, type, tagging(definition[:options])).value
 
-        ret = Array.new
-            
-        seq.each do |val|
-          next if val.tag == OpenSSL::ASN1::EOC
-          if is_template
-            ret << definition[:type].parse(val, nil, false) #raise if no match
-          else
-            ret << val.value
-          end
-        end
-              
+        ret = definition[:type].respond_to?(:parse) ?
+            parse_templates(seq, definition[:type]) :
+            parse_primitives(seq)
+
         if asn1.infinite_length && seq[seq.size - 1].tag != OpenSSL::ASN1::EOC
           raise OpenSSL::ASN1::ASN1Error.new(
             "Expected EOC. Got #{seq[seq.size - 1].tag}")
@@ -283,6 +271,22 @@ module OpenSSL::ASN1::Template
         obj.send(definition[:setter], ret)
         true
       end
+
+      private
+
+      def parse_templates(seq, type)
+        seq.map do |val|
+          next if val.tag == OpenSSL::ASN1::EOC
+          type.parse(val, nil, false) #raise if no match
+        end
+      end
+
+      def parse_primitives(seq)
+        seq.map do |val|
+          val.value
+        end
+      end
+
     end
   end
       

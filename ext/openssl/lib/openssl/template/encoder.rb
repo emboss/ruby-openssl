@@ -272,15 +272,26 @@ module OpenSSL::ASN1::Template
         return nil if value == nil || value == default(definition[:options])
         inf_length = value.instance_variable_get(:@infinite_length)
 
-        seq_value = Array.new
-        value.each do |element|
-          #inner values are either template types or primitives
-          elem_value = element.respond_to?(:to_asn1) ? 
-                       element.to_asn1 : definition[:type].new(element)
-          seq_value << elem_value
-        end
+        seq_value = definition[:type].respond_to?(:parse) ?
+                    encode_templates(value) :
+                    encode_primitives(value, definition[:type])
         type_new(seq_value, type, tag(definition[:options]), tagging(definition[:options]), inf_length)
       end
+
+      private
+
+      def encode_templates(values)
+        values.map do |element|
+          element.to_asn1
+        end
+      end
+
+      def encode_primitives(values, type)
+        values.map do |element|
+          type.new(element)
+        end
+      end
+
     end
   end
       
