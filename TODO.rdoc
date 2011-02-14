@@ -23,3 +23,6 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 === String encoders
 
 Introduce encoders that force a certain encoding that is specific to the string type?
+
+=== Threads
+Tested threaded encoding for SET_OF. Much slower than sequential.
