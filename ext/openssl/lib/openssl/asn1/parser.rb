@@ -111,10 +111,7 @@ module OpenSSL::ASN1::Template
         value = wrapped_value.value
             
         unless value.respond_to?(:each)
-          unless wrapped_value.tag == OpenSSL::ASN1::CLASS_TAG_MAP[definition[:type]]
-            raise OpenSSL::ASN1::ASN1Error.new("Tag mismatch for infinite length primitive " +
-              "value. Expected: #{OpenSSL::ASN1::CLASS_TAG_MAP[definition[:type]]} Got: #{wrapped_value.tag}")
-          end
+          value = single_value(wrapped_value, definition[:type])
           obj.send(definition[:setter], value)
           return true
         end
@@ -124,7 +121,19 @@ module OpenSSL::ASN1::Template
       end
       
       private
-      
+
+      def single_value(wrapped_value, type)
+        unless wrapped_value.tag == OpenSSL::ASN1::CLASS_TAG_MAP[type]
+          raise OpenSSL::ASN1::ASN1Error.new("Tag mismatch for infinite length primitive " +
+             "value. Expected: #{OpenSSL::ASN1::CLASS_TAG_MAP[type]} Got: #{wrapped_value.tag}")
+        end
+        wrapped_value.value.instance_variable_set(:@infinite_length, true)
+        wrapped_value.value.instance_variable_set(:@definite_value, true)
+        wrapped_value.value.instance_variable_set(:@infinite_length_sizes,
+                                                  [wrapped_value.value.bytesize])
+        wrapped_value.value
+      end
+
       def convert_to_definite(ary, tag)
         ret = ''
         inf_length_sizes = Array.new

@@ -23,13 +23,16 @@ module OpenSSL::ASN1::Template
     def encode_explicit(value, type, tag, tagging, tag_class, inf_length)
       if tagging == :EXPLICIT
         inner = type.new(value)
-        inner.infinite_length = true if inf_length
-        val = OpenSSL::ASN1::ASN1Data.new([inner], tag, tag_class)
-        val.infinite_length = true if inf_length
+        if inf_length
+          val = OpenSSL::ASN1::ASN1Data.new([inner, OpenSSL::ASN1::EndOfContent.new], tag, tag_class)
+          inner.infinite_length = true
+        else
+          val = OpenSSL::ASN1::ASN1Data.new([inner], tag, tag_class)
+        end
       else
         val = type.new(value, tag, tagging, tag_class)
-        val.infinite_length = true if inf_length
       end
+      val.infinite_length = true if inf_length
       val
     end
     
@@ -80,7 +83,8 @@ module OpenSSL::ASN1::Template
         value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
         
-        encode_inf_explicit(encode_value(value, definition[:type]),
+        encode_inf_explicit(value.instance_variable_get(:@definite_value),
+                            encode_value(value, definition[:type]),
                             default_tag_of_type(definition[:type]),
                             tag, 
                             tagging(definition[:options]),
@@ -124,18 +128,21 @@ module OpenSSL::ASN1::Template
         cons_value
       end
       
-      def encode_inf_explicit(value, default_tag, tag, tagging, tag_class)
+      def encode_inf_explicit(single_value, value, default_tag, tag, tagging, tag_class)
         if tagging == :EXPLICIT
-          inner = OpenSSL::ASN1::Constructive.new(value, default_tag)
-          inner.infinite_length = true
-          val = OpenSSL::ASN1::ASN1Data.new([inner, OpenSSL::ASN1::EndOfContent.new], 
-                                            tag, tag_class)
-          val.infinite_length = true
+          if single_value
+            val = OpenSSL::ASN1::ASN1Data.new(value, tag, tag_class)
+          else
+            inner = OpenSSL::ASN1::Constructive.new(value, default_tag)
+            inner.infinite_length = true
+            val = OpenSSL::ASN1::ASN1Data.new([inner, OpenSSL::ASN1::EndOfContent.new],
+                                              tag, tag_class)
+          end
         else
           tag ||= default_tag
           val = OpenSSL::ASN1::Constructive.new(value, tag, tagging, tag_class)
-          val.infinite_length = true
         end
+        val.infinite_length = true
         val
       end
 

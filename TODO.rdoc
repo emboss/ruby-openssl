@@ -22,9 +22,7 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 
 === Tests 
 
-* Test for infinite length explicitly tagged primitive with single value
-( not constructed)
-* Test for choice with inner template type
+* TBD
 
 === String encoders
 
