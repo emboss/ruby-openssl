@@ -1,9 +1,5 @@
 == OpenSSL::ASN1::Template
 
-=== segfault when parsing arbitrary data with OpenSSL::ASN1.decode
-Encountered a segfault when trying to decode HTML. Reproduce and
-fix.
-
 === asn1_sequence_of, asn1_set_of
 
 Currently the allowed sizes are generally (0..inf). It
@@ -30,4 +26,4 @@ Introduce encoders that force a certain encoding that is specific to the string 
 
 === Threads
 Tested threaded encoding for SET_OF. Unfortunately much slower than sequential.
-Experiment with thread pool and pool sizes.
+Experiment with thread pool and pool sizes. Same result.
