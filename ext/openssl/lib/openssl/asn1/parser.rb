@@ -344,8 +344,6 @@ module OpenSSL::ASN1::Template
         end
 
         unless optional(definition[:options]) || default(definition[:options])
-          pp definition
-          pp asn1
           raise OpenSSL::ASN1::ASN1Error.new(
             "Mandatory Choice value #{definition[:name]} not found.")
         end
