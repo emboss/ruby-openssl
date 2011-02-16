@@ -7,7 +7,7 @@ module OpenSSL::ASN1::Template
   #must be set according to the values in the 
   #definition. Finally the to_asn1 method must
   #return the ASN1Data value. If the corresponding
-  #data in the template is nil, then nil shall also
+  #data in the asn1 is nil, then nil shall also
   #be returned.
   module TypeEncoder 
     def type_new(value, type, tag, tagging, inf_length=nil, tag_class=nil)

@@ -79,8 +79,8 @@ module OpenSSL::ASN1::Template
   end
 end
 
-require_relative 'template/encoder'
-require_relative 'template/parser'
+require_relative 'encoder'
+require_relative 'parser'
 
 module OpenSSL::ASN1
   #Provides class methods that define the underlying ASN.1 structure of 

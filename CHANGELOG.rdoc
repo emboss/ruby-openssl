@@ -1,4 +1,8 @@
-=== 0.2.0 / 2011-02-14 [emboss]
+=== 0.2.0 / 2011-02-15 [emboss]
+* Added Crl and SignedData classes
+* Moved Template classes into OpenSSL::ASN1 namespace
+
+  === 0.2.0 / 2011-02-14 [emboss]
 * Minor performance improvements and refactoring
 
  === 0.2.0 / 2011-02-13 [emboss]

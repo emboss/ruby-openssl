@@ -1,5 +1,9 @@
 == OpenSSL::ASN1::Template
 
+=== asn1_declare :ANY
+
+Provide a generic ANY type - asn1_any can then be discarded.
+
 === asn1_sequence_of, asn1_set_of
 
 Currently the allowed sizes are generally (0..inf). It
@@ -18,7 +22,9 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 
 === Tests 
 
-* TBD
+* Test for infinite length explicitly tagged primitive with single value
+( not constructed)
+* Test for choice with inner template type
 
 === String encoders
 

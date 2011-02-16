@@ -107,17 +107,19 @@ module OpenSSL::ASN1::Template
         unless match(asn1, definition[:type], definition[:setter], definition[:options])
           return false
         end
-        value = unpack_tagged(asn1, definition[:type], tagging(definition[:options])).value
+        wrapped_value = unpack_tagged(asn1, definition[:type], tagging(definition[:options]))
+        value = wrapped_value.value
             
         unless value.respond_to?(:each)
-          raise OpenSSL::ASN1::ASN1Error.new(
-            "Value #{definition[:name]} (#{value}) is not constructed although " +
-            "expected to be of infinite length.")
+          unless wrapped_value.tag == OpenSSL::ASN1::CLASS_TAG_MAP[definition[:type]]
+            raise OpenSSL::ASN1::ASN1Error.new("Tag mismatch for infinite length primitive " +
+              "value. Expected: #{OpenSSL::ASN1::CLASS_TAG_MAP[definition[:type]]} Got: #{wrapped_value.tag}")
+          end
+          obj.send(definition[:setter], value)
+          return true
         end
           
-        tag = OpenSSL::ASN1::CLASS_TAG_MAP[definition[:type]]
-        
-        obj.send(definition[:setter], convert_to_definite(value, tag))
+        obj.send(definition[:setter], convert_to_definite(value, OpenSSL::ASN1::CLASS_TAG_MAP[definition[:type]]))
         true
       end
       
@@ -321,7 +323,7 @@ module OpenSSL::ASN1::Template
               first_any = i
             end
           else
-            if match(asn1, deff[:type], definition[:name], deff[:options], true)
+            if match(asn1, real_type(deff[:type]), definition[:name], deff[:options], true)
               return deff
             end
           end
@@ -333,6 +335,8 @@ module OpenSSL::ASN1::Template
         end
 
         unless optional(definition[:options]) || default(definition[:options])
+          pp definition
+          pp asn1
           raise OpenSSL::ASN1::ASN1Error.new(
             "Mandatory Choice value #{definition[:name]} not found.")
         end
