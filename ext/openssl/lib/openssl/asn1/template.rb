@@ -377,3 +377,13 @@ module OpenSSL::ASN1
     end
   end
 end
+
+module OpenSSL::ASN1
+
+  class Any
+    include OpenSSL::ASN1::Template
+
+    asn1_declare :ANY
+  end
+
+end

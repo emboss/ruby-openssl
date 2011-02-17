@@ -1,12 +1,6 @@
 
 module OpenSSL::ASN1
 
-  class Any
-    include OpenSSL::ASN1::Template
-
-    asn1_declare :ANY
-  end
-
   class DistinguishedName
     include OpenSSL::ASN1::Template
 
