@@ -1,4 +1,7 @@
 === 0.2.0 / 2011-02-17 [emboss]
+* Added classes for timestamp support.
+
+ === 0.2.0 / 2011-02-17 [emboss]
 * Replaced asn1_any by Any template class.
 === 0.2.0 / 2011-02-16 [emboss]
 * SignedData parses and encodes correctly now.
