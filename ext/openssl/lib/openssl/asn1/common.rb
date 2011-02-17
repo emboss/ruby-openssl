@@ -1,6 +1,12 @@
 
 module OpenSSL::ASN1
 
+  class Any
+    include OpenSSL::ASN1::Template
+
+    asn1_declare :ANY
+  end
+
   class DistinguishedName
     include OpenSSL::ASN1::Template
 
@@ -40,7 +46,7 @@ module OpenSSL::ASN1
 
     asn1_declare :SEQUENCE do
       asn1_object_id :algorithm
-      asn1_any :parameters, { optional: true }
+      asn1_template Any, :parameters, { optional: true }
     end
   end
 

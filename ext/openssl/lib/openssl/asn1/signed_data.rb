@@ -9,7 +9,7 @@ module OpenSSL::ASN1
 
     asn1_declare :CHOICE do
       asn1_template OpenSSL::ASN1::Certificate
-      asn1_any #TODO
+      asn1_template OpenSSL::ASN1::Any #TODO
     end
   end
 
@@ -18,7 +18,7 @@ module OpenSSL::ASN1
 
     asn1_declare :SEQUENCE do
       asn1_object_id :info_format
-      asn1_any :revocation_info
+      asn1_template OpenSSL::ASN1::Any, :revocation_info
     end
   end
 
@@ -54,7 +54,7 @@ module OpenSSL::ASN1
 
     asn1_declare :SEQUENCE do
       asn1_object_id :type
-      asn1_any :value #SET OF ANY
+      asn1_set_of OpenSSL::ASN1::Any, :value
     end
   end
 
