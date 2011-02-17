@@ -184,7 +184,7 @@ module OpenSSL::ASN1
     private
       
     def parse_raw(raw)
-      asn1 = OpenSSL::ASN1.decode(raw)
+      asn1 = raw.respond_to?(:to_der) ? raw : OpenSSL::ASN1.decode(raw)
       definition = self.class.instance_variable_get(:@definition)
       definition[:parser].parse(self, asn1, definition)
     end
@@ -266,18 +266,6 @@ module OpenSSL::ASN1
             end
           end
             
-          define_method :asn1_any do |name=nil, opts=nil|
-            attr_accessor name if name
-            deff = { type: OpenSSL::ASN1::ASN1Data,
-                     name: name,
-                     setter: name.to_s + '=',
-                     options: opts, 
-                     encoder: AnyEncoder,
-                     parser: AnyParser }
-            cur_def[:inner_def] << deff
-            increase_min_size(template_type, cur_def, opts)
-          end
-            
           define_method :asn1_choice do |name, opts=nil, &proc|
             attr_accessor name
             tmp_def = cur_def
@@ -295,8 +283,6 @@ module OpenSSL::ASN1
               
         end
 
-
-          
         declare_prim(:asn1_boolean, OpenSSL::ASN1::Boolean)
         declare_prim(:asn1_integer, OpenSSL::ASN1::Integer)
         declare_prim(:asn1_bit_string, OpenSSL::ASN1::BitString)
@@ -332,6 +318,7 @@ module OpenSSL::ASN1
           when :SEQUENCE then OpenSSL::ASN1::Sequence
           when :SET then OpenSSL::ASN1::Set
           when :CHOICE then nil
+          when :ANY then OpenSSL::ASN1::ASN1Data
           else type
         end
       end
@@ -343,6 +330,7 @@ module OpenSSL::ASN1
             when :CHOICE then ChoiceEncoder
             when :SEQUENCE_OF then SequenceOfEncoder
             when :SET_OF then SetOfEncoder
+            when :ANY then AnyEncoder
             else raise OpenSSL::ASN1::ASN1Error.new("Not supported: #{sym}")
           end
       end
@@ -354,6 +342,7 @@ module OpenSSL::ASN1
             when :SEQUENCE_OF then SequenceOfParser
             when :SET_OF then SetOfParser
             when :CHOICE then ChoiceParser
+            when :ANY then AnyParser
             else raise OpenSSL::ASN1::ASN1Error.new("Not supported: #{sym}")
           end
       end
@@ -387,4 +376,14 @@ module OpenSSL::ASN1
       end
     end
   end
+end
+
+module OpenSSL::ASN1
+
+  class Any
+    include OpenSSL::ASN1::Template
+
+    asn1_declare :ANY
+  end
+
 end

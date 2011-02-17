@@ -324,7 +324,7 @@ module OpenSSL::ASN1::Template
         i = 0
 
         definition[:inner_def].each do |deff|
-          if deff[:type] == OpenSSL::ASN1::ASN1Data #asn1_any
+          if deff[:type] == OpenSSL::ASN1::Any
             tag = tag(deff[:options])
             if tag && asn1.tag == tag
               return deff
