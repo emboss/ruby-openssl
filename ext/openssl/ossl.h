@@ -1,5 +1,5 @@
 /*
- * $Id: ossl.h 26781 2010-02-28 02:56:26Z naruse $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -59,9 +59,6 @@ extern "C" {
 #include <openssl/rand.h>
 #include <openssl/conf.h>
 #include <openssl/conf_api.h>
-#if HAVE_OPENSSL_TS_H
-  #include <openssl/ts.h>
-#endif
 #undef X509_NAME
 #undef PKCS7_SIGNER_INFO
 #if defined(HAVE_OPENSSL_ENGINE_H) && defined(HAVE_ST_ENGINE)
@@ -87,21 +84,21 @@ extern VALUE eOSSLError;
  * CheckTypes
  */
 #define OSSL_Check_Kind(obj, klass) do {\
-  if (!rb_obj_is_kind_of(obj, klass)) {\
+  if (!rb_obj_is_kind_of((obj), (klass))) {\
     ossl_raise(rb_eTypeError, "wrong argument (%s)! (Expected kind of %s)",\
                rb_obj_classname(obj), rb_class2name(klass));\
   }\
 } while (0)
 
 #define OSSL_Check_Instance(obj, klass) do {\
-  if (!rb_obj_is_instance_of(obj, klass)) {\
+  if (!rb_obj_is_instance_of((obj), (klass))) {\
     ossl_raise(rb_eTypeError, "wrong argument (%s)! (Expected instance of %s)",\
                rb_obj_classname(obj), rb_class2name(klass));\
   }\
 } while (0)
 
 #define OSSL_Check_Same_Class(obj1, obj2) do {\
-  if (!rb_obj_is_instance_of(obj1, rb_obj_class(obj2))) {\
+  if (!rb_obj_is_instance_of((obj1), rb_obj_class(obj2))) {\
     ossl_raise(rb_eTypeError, "wrong argument type");\
   }\
 } while (0)
@@ -132,7 +129,7 @@ do{\
     int len = RSTRING_LEN(str);\
     int newlen = (p) - (unsigned char*)RSTRING_PTR(str);\
     assert(newlen <= len);\
-    rb_str_set_len(str, newlen);\
+    rb_str_set_len((str), newlen);\
 }while(0)
 
 /*
@@ -183,13 +180,13 @@ extern VALUE dOSSL;
 } while (0)
 
 #define OSSL_Warning(fmt, ...) do { \
-  OSSL_Debug(fmt, ##__VA_ARGS__); \
-  rb_warning(fmt, ##__VA_ARGS__); \
+  OSSL_Debug((fmt), ##__VA_ARGS__); \
+  rb_warning((fmt), ##__VA_ARGS__); \
 } while (0)
 
 #define OSSL_Warn(fmt, ...) do { \
-  OSSL_Debug(fmt, ##__VA_ARGS__); \
-  rb_warn(fmt, ##__VA_ARGS__); \
+  OSSL_Debug((fmt), ##__VA_ARGS__); \
+  rb_warn((fmt), ##__VA_ARGS__); \
 } while (0)
 #else
 void ossl_debug(const char *, ...);
@@ -218,9 +215,6 @@ void ossl_debug(const char *, ...);
 #include "ossl_pkey.h"
 #include "ossl_rand.h"
 #include "ossl_ssl.h"
-#if HAVE_OPENSSL_TS_H
-  #include "ossl_ts.h"
-#endif
 #include "ossl_version.h"
 #include "ossl_x509.h"
 #include "ossl_engine.h"
