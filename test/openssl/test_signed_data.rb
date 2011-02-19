@@ -12,7 +12,8 @@ class OpenSSL::TestSignedData < Test::Unit::TestCase
     dn = OpenSSL::ASN1::DistinguishedName.create('/C=DE/O=Ruby/CN=Ruby CA')
     si.set_issuer_serial(dn, 1)
     si.sign(OpenSSL::TestUtils::TEST_KEY_RSA2048, data)
-    pp si
+
+    si.verify(OpenSSL::TestUtils::TEST_KEY_RSA2048, data, OpenSSL::ASN1::SignedData::ID_DATA)
   end
 
 end

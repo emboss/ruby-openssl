@@ -1,4 +1,7 @@
 === 0.2.0 / 2011-02-19 [emboss]
+* SignedData: support for verifying a SignerInfo
+
+ === 0.2.0 / 2011-02-19 [emboss]
 * Added convenience methods for SignedData and Certificate
 * Added DistinguishedName convenience methods
 * SignedData: support for signing a SignerInfo

@@ -1,5 +1,10 @@
 == OpenSSL::ASN1::Template
 
+=== asn1_object_id
+Leave their value as OpenSSL::ASN1::ObjectId instead of setting
+only the string value. Otherwise equality tests are only
+possible when creating temporary ObjectIds
+
 === asn1_sequence_of, asn1_set_of
 
 Currently the allowed sizes are generally (0..inf). It
@@ -23,3 +28,22 @@ being forced to create a template for an otherwise useless ASN.1 construct.
 === String encoders
 
 Introduce encoders that force a certain encoding that is specific to the string type?
+
+== Functionality
+
+=== Certificate
+* PKey from SubjectPublicKeyInfo
+
+Should be possible with PKey directly?
+
+* Certificate creation: extensions etc
+
+=== SignedData
+* Verify on global level
+* add_signature on global level
+* More CMS attributes
+
+=== SignerInfo
+* Verify using certificate
+
+

@@ -12,8 +12,8 @@ module OpenSSL::ASN1::Attributes
       @type = type
     end
 
-    def self.from_attribute(attr)
-      unless attr.type.to_der == ID_ASN1.to_der ||
+    def self.from_attr(attr)
+      unless OpenSSL::ASN1::ObjectId.new(attr.type).to_der == ID_ASN1.to_der ||
              attr.value.size == 1 ||
              attr.value.first.value.tag == OpenSSL::ASN1::OBJECT_ID
         raise OpenSSL::ASN1::ASN1Error.new("Attribute is not a ContentType")
@@ -21,7 +21,7 @@ module OpenSSL::ASN1::Attributes
       ContentType.new(attr.value.first.value.value)
     end
 
-    def to_attribute
+    def to_attr
       attr = OpenSSL::ASN1::Attribute.new
       attr.type = ID
       attr.value = [OpenSSL::ASN1::Any.new(OpenSSL::ASN1::ObjectId.new(@type))]
@@ -40,8 +40,8 @@ module OpenSSL::ASN1::Attributes
       @value = value
     end
 
-    def self.from_attribute(attr)
-      unless attr.type.to_der == ID_ASN1.to_der ||
+    def self.from_attr(attr)
+      unless OpenSSL::ASN1::ObjectId.new(attr.type).to_der == ID_ASN1.to_der ||
              attr.value.size == 1 ||
              attr.value.first.value.tag == OpenSSL::ASN1::OCTET_STRING
         raise OpenSSL::ASN1::ASN1Error.new("Attribute is not a MessageDigest")
@@ -49,7 +49,7 @@ module OpenSSL::ASN1::Attributes
       MessageDigest.new(attr.value.first.value.value)
     end
 
-    def to_attribute
+    def to_attr
       attr = OpenSSL::ASN1::Attribute.new
       attr.type = ID
       attr.value = [OpenSSL::ASN1::Any.new(OpenSSL::ASN1::OctetString.new(@value))]
