@@ -1,4 +1,7 @@
 === 0.2.0 / 2011-02-18 [emboss]
+* sync with original
+
+ === 0.2.0 / 2011-02-18 [emboss]
 * minor corrections
 
 === 0.2.0 / 2011-02-17 [emboss]
