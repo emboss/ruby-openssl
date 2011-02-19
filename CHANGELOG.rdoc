@@ -1,7 +1,10 @@
+=== 0.2.0 / 2011-02-19 [emboss]
+* Adopted changes in ruby_certificate
+
 === 0.2.0 / 2011-02-18 [emboss]
 * sync with original
 
- === 0.2.0 / 2011-02-18 [emboss]
+=== 0.2.0 / 2011-02-18 [emboss]
 * minor corrections
 
 === 0.2.0 / 2011-02-17 [emboss]
