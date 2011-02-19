@@ -193,7 +193,7 @@ module OpenSSL::ASN1
       definition[:inner_def].each do |deff|
         unless parse
           mandatory = !(deff[:options] && (deff[:options][:optional] || deff[:options][:default]))
-          if mandatory && deff[:type] && deff[:type].respond_to?(:parse)
+          if mandatory && deff[:type] && deff[:type].respond_to?(:parse) && deff[:name]
             send(deff[:setter], deff[:type].new(deff[:options]))
           end
         end
