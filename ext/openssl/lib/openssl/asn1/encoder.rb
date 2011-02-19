@@ -24,28 +24,23 @@ module OpenSSL::ASN1::Template
       if tagging == :EXPLICIT
         inner = type.new(value)
         if inf_length
-          val = OpenSSL::ASN1::ASN1Data.new([inner, OpenSSL::ASN1::EndOfContent.new], tag, tag_class)
           inner.infinite_length = true
+          OpenSSL::ASN1::ASN1Data.new([inner, OpenSSL::ASN1::EndOfContent.new], tag, tag_class)
         else
-          val = OpenSSL::ASN1::ASN1Data.new([inner], tag, tag_class)
+          OpenSSL::ASN1::ASN1Data.new([inner], tag, tag_class)
         end
       else
         val = type.new(value, tag, tagging, tag_class)
+        val.infinite_length = true if inf_length
+        val
       end
-      val.infinite_length = true if inf_length
-      val
     end
     
     def value_raise_or_default(value, name, options)
-      unless value
-        unless optional(options) || default(options) != nil
-          raise OpenSSL::ASN1::ASN1Error.new(
-          "Mandatory value #{name} not set.")
-        end
-        nil
-      else
-        value
-      end  
+      unless value || optional(options) || default(options) != nil
+        raise OpenSSL::ASN1::ASN1Error.new("Mandatory value #{name} not set.")
+      end
+      value
     end
   end
   

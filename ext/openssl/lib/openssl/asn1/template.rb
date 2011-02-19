@@ -130,7 +130,7 @@ module OpenSSL::ASN1
       if options != nil && !options.is_a?(Hash)
         parse_raw(options)
       else
-        @options = options
+        @options = options if options
         init_mandatory_templates_defaults(self.class.instance_variable_get(:@definition), parse)
       end
     end
@@ -193,19 +193,13 @@ module OpenSSL::ASN1
       definition[:inner_def].each do |deff|
         unless parse
           mandatory = !(deff[:options] && (deff[:options][:optional] || deff[:options][:default]))
-          if mandatory && deff[:name] && deff[:type] && deff[:type].include?(Template)
-            instance = deff[:type].new(deff[:options])
-            send(deff[:setter], instance)
+          if mandatory && deff[:type] && deff[:type].respond_to?(:parse)
+            send(deff[:setter], deff[:type].new(deff[:options]))
           end
         end
         
-        default = if (deff[:options])
-                    deff[:options][:default]
-                  else
-                    nil
-                  end
-        if default != nil
-          send(deff[:setter], default)
+        if deff[:options] && deff[:options][:default] != nil
+          send(deff[:setter], deff[:options][:default])
         end
       end
     end
