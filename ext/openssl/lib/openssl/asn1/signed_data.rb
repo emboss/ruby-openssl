@@ -110,7 +110,7 @@ module OpenSSL::ASN1
       content_type ||= SignedData::ID_DATA
       add_mandatory_attributes(data, content_type)
       der = OpenSSL::ASN1::Set.new(to_asn1_iv(:signed_attrs).value).to_der #universal encoding is used
-      md = OpenSSL::Digest.new(digest_algorithm.algorithm)
+      md = OpenSSL::Digest.new(digest_algorithm.algorithm.sn)
       @signature = pkey.sign(md, der)
     end
 
@@ -127,20 +127,19 @@ module OpenSSL::ASN1
     def attrs_single(accessor, id)
       ary = attrs(accessor, id)
       unless ary.size == 1
-        raise OpenSSL::ASN1::ASN1Error.new("There are multiple values of attribute #{id}")
+        raise OpenSSL::ASN1::ASN1Error.new("There are multiple values of attribute #{id.sn}")
       end
       ary.first
     end
 
     def attrs(accessor, id)
-      unless id.respond_to?(:to_asn1)
+      unless id.respond_to?(:to_der)
         asn1id = OpenSSL::ASN1::ObjectId.new(id)
       else
         asn1id = id
       end
-
       ary = instance_variable_get(accessor).select do |attr|
-        OpenSSL::ASN1::ObjectId.new(attr.type).to_der == asn1id.to_der
+        attr.type.oid == asn1id.oid
       end
       ary.empty? ? nil : ary
     end
@@ -148,7 +147,7 @@ module OpenSSL::ASN1
     def add_mandatory_attributes(data, content_type)
       @signed_attrs ||= Array.new
       @signed_attrs << OpenSSL::ASN1::Attributes::ContentType.new(content_type).to_attr
-      md = OpenSSL::Digest.new(@digest_algorithm.algorithm)
+      md = OpenSSL::Digest.new(@digest_algorithm.algorithm.sn)
       @signed_attrs << OpenSSL::ASN1::Attributes::MessageDigest.new(md.digest(data)).to_attr
     end
 
@@ -165,7 +164,7 @@ module OpenSSL::ASN1
     end
 
     def verify_no_attrs(pkey, data)
-      unless pkey.verify(OpenSSL::Digest.new(@digest_algorithm.algorithm), @signature, data)
+      unless pkey.verify(OpenSSL::Digest.new(@digest_algorithm.algorithm.sn), @signature, data)
         raise OpenSSL::ASN1::ASN1Error.new('Siganture is invalid.')
       end
     end
@@ -174,20 +173,19 @@ module OpenSSL::ASN1
       ct_attr = OpenSSL::ASN1::Attributes::ContentType.from_attr(
           signed_attr(OpenSSL::ASN1::Attributes::ContentType::ID))
 
-      unless OpenSSL::ASN1::ObjectId.new(content_type).to_der ==
-             OpenSSL::ASN1::ObjectId.new(ct_attr.type).to_der
+      unless content_type.oid == ct_attr.type.oid
         raise OpenSSL::ASN1::ASN1Error.new('ContentType attribute differs from actual content type')
       end
 
       der = OpenSSL::ASN1::Set.new(to_asn1_iv(:signed_attrs).value).to_der #universal encoding is used
-      unless pkey.verify(OpenSSL::Digest.new(@digest_algorithm.algorithm), @signature, der)
+      unless pkey.verify(OpenSSL::Digest.new(@digest_algorithm.algorithm.sn), @signature, der)
         raise OpenSSL::ASN1::ASN1Error.new('Signature value is invalid')
       end
 
       md_attr = OpenSSL::ASN1::Attributes::MessageDigest.from_attr(
           signed_attr(OpenSSL::ASN1::Attributes::MessageDigest::ID))
 
-      unless OpenSSL::Digest.new(@digest_algorithm.algorithm).digest(data) == md_attr.value
+      unless OpenSSL::Digest.new(@digest_algorithm.algorithm.sn).digest(data) == md_attr.value
         raise OpenSSL::ASN1::ASN1Error.new('MessageDigest attribute value is invalid')
       end
     end
@@ -196,7 +194,7 @@ module OpenSSL::ASN1
   class SignedData
     include OpenSSL::ASN1::Template
 
-    ID_DATA = '1.2.840.113549.1.7.1'
+    ID_DATA = OpenSSL::ASN1::ObjectId.new('1.2.840.113549.1.7.1')
 
     class Content # the actual SignedData
       include OpenSSL::ASN1::Template

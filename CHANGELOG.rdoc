@@ -1,4 +1,10 @@
 === 0.2.0 / 2011-02-20 [emboss]
+* Adapted to changes for asn1_object_id
+
+ObjectId comparison is now handled by comparing 'oid',
+it's the only safe way to ensure equality.
+
+ === 0.2.0 / 2011-02-20 [emboss]
 * NullEncoder and NullParser
 * Optimization for parsed Any values
 * asn1_object_id: keep the ASN1 object to allow equality tests

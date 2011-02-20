@@ -1,10 +1,5 @@
 == OpenSSL::ASN1::Template
 
-=== asn1_object_id
-
-need an equality test, that is based on the byte representation of its
-value. to_der doesn't really work since it also includes tag.
-
 === asn1_sequence_of, asn1_set_of
 
 Currently the allowed sizes are generally (0..inf). It
@@ -45,5 +40,8 @@ Should be possible with PKey directly?
 
 === SignerInfo
 * Verify using certificate
+
+=== Digest
+* Digest.new with oid must be possible, sn not always available
 
 

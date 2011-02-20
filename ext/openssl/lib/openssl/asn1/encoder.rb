@@ -359,7 +359,7 @@ module OpenSSL::ASN1::Template
         if value.instance_variable_get(:@parsed) && !tagging
           return value
         end
-        # tag is set, since tagging is set
+        tag = tag || value.tag
         encode(value, tag, tagging, tag_class)
       end
 

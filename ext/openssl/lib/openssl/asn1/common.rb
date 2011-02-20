@@ -43,7 +43,7 @@ module OpenSSL::ASN1
       end
       dn.value = ary.map do |pair|
          atv = AttributeTypeAndValue.new
-         atv.type = pair.first
+         atv.type = OpenSSL::ASN1::ObjectId.new(pair.first)
          atv.value = DirectoryString.new
          type = utf8 ? OpenSSL::ASN1::UTF8String : OpenSSL::ASN1::PrintableString
          atv.value.value = OpenSSL::ASN1::Template::ChoiceValue.new(type, pair.last)
@@ -103,7 +103,7 @@ module OpenSSL::ASN1
 
     def self.algorithm_null_params(name)
       alg = AlgorithmIdentifier.new
-      alg.algorithm = name
+      alg.algorithm = OpenSSL::ASN1::ObjectId.new(name)
       alg.params = null_params
       alg
     end
