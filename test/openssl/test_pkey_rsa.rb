@@ -39,6 +39,48 @@ class OpenSSL::TestPKeyRSA < Test::Unit::TestCase
     key4 = OpenSSL::PKey::RSA.new(key3.to_der)
     assert(!key4.private?)
   end
+
+  def test_read_private_key_der
+    der = OpenSSL::TestUtils::TEST_KEY_RSA1024.to_der
+    key = OpenSSL::PKey.read_private(der)
+    assert(key.private?)
+    assert_equal(der, key.to_der)
+  end
+
+  def test_read_private_key_pem
+    pem = OpenSSL::TestUtils::TEST_KEY_RSA1024.to_pem
+    key = OpenSSL::PKey.read_private(pem)
+    assert(key.private?)
+    assert_equal(pem, key.to_pem)
+  end
+
+  def test_read_public_key_der
+    der = OpenSSL::TestUtils::TEST_KEY_RSA1024.public_key.to_der
+    key = OpenSSL::PKey.read_public(der)
+    assert(!key.private?)
+    assert_equal(der, key.to_der)
+  end
+
+  def test_read_public_key_pem
+    pem = OpenSSL::TestUtils::TEST_KEY_RSA1024.public_key.to_pem
+    key = OpenSSL::PKey.read_public(pem)
+    assert(!key.private?)
+    assert_equal(pem, key.to_pem)
+  end
+
+  def test_read_private_key_pem_pw
+    pem = OpenSSL::TestUtils::TEST_KEY_RSA1024.to_pem(OpenSSL::Cipher.new('AES-128-CBC'), 'secret')
+    #callback form for password
+    key = OpenSSL::PKey.read_private(pem) do
+      'secret'
+    end
+    assert(key.private?)
+    # pass password directly
+    key = OpenSSL::PKey.read_private(pem, 'secret')
+    assert(key.private?)
+    #omit pem equality check, will be different due to cipher iv
+  end
+
 end
 
 end

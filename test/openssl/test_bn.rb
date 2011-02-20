@@ -15,8 +15,8 @@ class OpenSSL::TestBN < Test::Unit::TestCase
 
   def test_cmp_nil
     bn = OpenSSL::BN.new('1')
-    bn == nil
-    bn != nil
+    assert_equal(false, bn == nil)
+    assert_equal(true, bn != nil)
   end
 end
 

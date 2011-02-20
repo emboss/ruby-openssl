@@ -457,16 +457,13 @@ static VALUE ossl_ec_key_is_private_key(VALUE self)
     return (EC_KEY_get0_private_key(ec) ? Qtrue : Qfalse);
 }
 
-static VALUE ossl_ec_key_to_string(VALUE self, int format)
+static VALUE ossl_ec_key_to_string(VALUE self, VALUE ciph, VALUE pass, int format)
 {
     EC_KEY *ec;
     BIO *out;
     int i = -1;
     int private = 0;
-#if 0  /* unused now */
-    EVP_CIPHER *cipher = NULL;
     char *password = NULL;
-#endif
     VALUE str;
 
     Require_EC_KEY(self, ec);
@@ -486,37 +483,26 @@ static VALUE ossl_ec_key_to_string(VALUE self, int format)
     switch(format) {
     case EXPORT_PEM:
     	if (private) {
-#if 0  /* unused now */
-    	    if (cipher || password)
-/* BUG: finish cipher/password key export */
-    	        rb_notimplement();
+	    const EVP_CIPHER *cipher;
+	    if (!NIL_P(ciph)) {
+		cipher = GetCipherPtr(ciph);
+		if (!NIL_P(pass)) {
+		    password = StringValuePtr(pass);
+		}
+	    }
+	    else {
+		cipher = NULL;
+	    }
             i = PEM_write_bio_ECPrivateKey(out, ec, cipher, NULL, 0, NULL, password);
-#endif
-            i = PEM_write_bio_ECPrivateKey(out, ec, NULL, NULL, 0, NULL, NULL);
     	} else {
-#if 0  /* unused now */
-    	    if (cipher || password)
-                rb_raise(rb_eArgError, "encryption is not supported when exporting this key type");
-#endif
-
             i = PEM_write_bio_EC_PUBKEY(out, ec);
         }
 
     	break;
     case EXPORT_DER:
         if (private) {
-#if 0  /* unused now */
-    	    if (cipher || password)
-                rb_raise(rb_eArgError, "encryption is not supported when exporting this key type");
-#endif
-
             i = i2d_ECPrivateKey_bio(out, ec);
         } else {
-#if 0  /* unused now */
-    	    if (cipher || password)
-                rb_raise(rb_eArgError, "encryption is not supported when exporting this key type");
-#endif
-
             i = i2d_EC_PUBKEY_bio(out, ec);
         }
 
@@ -542,9 +528,11 @@ static VALUE ossl_ec_key_to_string(VALUE self, int format)
  *
  *  See the OpenSSL documentation for PEM_write_bio_ECPrivateKey()
  */
-static VALUE ossl_ec_key_to_pem(VALUE self)
+static VALUE ossl_ec_key_to_pem(int argc, VALUE *argv, VALUE self)
 {
-    return ossl_ec_key_to_string(self, EXPORT_PEM);
+    VALUE cipher, passwd;
+    rb_scan_args(argc, argv, "02", &cipher, &passwd);
+    return ossl_ec_key_to_string(self, cipher, passwd, EXPORT_PEM);
 }
 
 /*
@@ -555,7 +543,7 @@ static VALUE ossl_ec_key_to_pem(VALUE self)
  */
 static VALUE ossl_ec_key_to_der(VALUE self)
 {
-    return ossl_ec_key_to_string(self, EXPORT_DER);
+    return ossl_ec_key_to_string(self, Qnil, Qnil, EXPORT_DER);
 }
 
 /*
@@ -1526,7 +1514,7 @@ void Init_ossl_ec()
     rb_define_method(cEC, "dsa_verify_asn1", ossl_ec_key_dsa_verify_asn1, 2);
 /* do_sign/do_verify */
 
-    rb_define_method(cEC, "to_pem", ossl_ec_key_to_pem, 0);
+    rb_define_method(cEC, "to_pem", ossl_ec_key_to_pem, -1);
     rb_define_method(cEC, "to_der", ossl_ec_key_to_der, 0);
     rb_define_method(cEC, "to_text", ossl_ec_key_to_text, 0);
 
