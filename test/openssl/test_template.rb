@@ -32,9 +32,10 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     end
 
     t = template.new
-    obj_id = OpenSSL::ASN1::ObjectId.new("1.2.3.4.5")
+    obj_id = OpenSSL::ASN1::ObjectId.new("SHA1")
     t.name = obj_id
     asn1 = t.to_asn1
+    
     assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
     assert_equal(1, asn1.value.size)
     asn1prim = asn1.value.first
@@ -44,7 +45,7 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     der = asn1.to_der
     p = template.parse(OpenSSL::ASN1.decode(der))
 
-    assert_equal(obj_id.to_der, p.name.to_der)
+    assert_equal(obj_id.oid, p.name.oid)
     assert_equal(der, p.to_der)
   end
 
@@ -1899,12 +1900,12 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
       assert_tagged(0, :IMPLICIT, asn1prim)
     end
     
-    assert_equal("1.2.3.4.5", asn1prim.value)
+    assert_equal(obj_id.oid, asn1prim.oid)
 
     der = asn1.to_der
     p = template.parse(der)
-    pp p
-    assert_equal(obj_id.to_der, p.a.to_der)
+    
+    assert_equal(obj_id.oid, p.a.oid)
     assert_equal(der, p.to_der)
   end
   
