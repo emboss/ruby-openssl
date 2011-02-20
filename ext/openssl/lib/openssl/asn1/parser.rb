@@ -88,10 +88,7 @@ module OpenSSL::ASN1::Template
         unless match(asn1, definition[:type], definition[:setter], definition[:options])
           return false
         end
-        # shortcut for NULL
-        if definition[:type] == OpenSSL::ASN1::Null
-          return true
-        end
+
         value = unpack_tagged(asn1, definition[:type], tagging(definition[:options])).value
         obj.send(definition[:setter], value)
         true
@@ -234,7 +231,8 @@ module OpenSSL::ASN1::Template
             OpenSSL::ASN1::ASN1Error.new("Cannot unambiguously assign ASN.1 Any")
           end
         end
-        
+
+        asn1.instance_variable_set(:@parsed, true) #allows shortcut for re-encoding
         obj.send(definition[:setter], asn1)
         true
       end
@@ -361,6 +359,38 @@ module OpenSSL::ASN1::Template
           return false
         end
         obj.send(definition[:setter], obj.send(definition[:name]).force_encoding('UTF-8'))
+        true
+      end
+    end
+  end
+
+  class NullParser
+    class << self
+      include TypeParser, TemplateUtil
+
+      def parse(obj, asn1, definition)
+        unless match(asn1, definition[:type], definition[:setter], definition[:options])
+          return false
+        end
+        # shortcut - won't set value
+        true
+      end
+
+    end
+  end
+
+  class ObjectIdParser
+    class << self
+      include TypeParser, TemplateUtil
+
+      def parse(obj, asn1, definition)
+        unless match(asn1, definition[:type], definition[:setter], definition[:options])
+          return false
+        end
+        # set the ASN1 object instead of only the value
+        value = unpack_tagged(asn1, definition[:type], tagging(definition[:options]))
+        value.instance_variable_set(:@parsed, true)
+        obj.send(definition[:setter], value)
         true
       end
     end

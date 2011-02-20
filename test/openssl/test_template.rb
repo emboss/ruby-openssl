@@ -23,7 +23,37 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
   end
   
   def test_asn1_object_id
-    check_asn1_primitive(:asn1_object_id, OpenSSL::ASN1::OBJECT, "1.2.3.4.5")
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare :SEQUENCE do
+        asn1_object_id :name
+      end
+    end
+
+    t = template.new
+    obj_id = OpenSSL::ASN1::ObjectId.new("1.2.3.4.5")
+    t.name = obj_id
+    asn1 = t.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    asn1prim = asn1.value.first
+    assert_universal(OpenSSL::ASN1::OBJECT, asn1prim)
+    assert_equal(obj_id.to_der, asn1prim.to_der)
+
+    der = asn1.to_der
+    p = template.parse(OpenSSL::ASN1.decode(der))
+
+    assert_equal(obj_id.to_der, p.name.to_der)
+    assert_equal(der, p.to_der)
+  end
+
+  def test_object_id_explicit
+    check_object_id_tagged(:EXPLICIT)
+  end
+  
+  def test_object_id_implicit
+    check_object_id_tagged(:IMPLICIT)
   end
   
   def test_asn1_enumerated
@@ -265,13 +295,14 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     
     der = asn1.to_der
     p = template.parse(OpenSSL::ASN1.decode(der))
-    
+
     assert_equal(true, p.a.value.is_a?(OpenSSL::ASN1::ASN1Data))
     assert_tagged(0, nil, p.a.value)
-    
-    p.a.value.tag = OpenSSL::ASN1::INTEGER
-    p.a.value.tag_class = :UNIVERSAL
-    pint = OpenSSL::ASN1.decode(p.a.value.to_der)
+
+    dup = OpenSSL::ASN1.decode(p.a.value.to_der)
+    dup.tag = OpenSSL::ASN1::INTEGER
+    dup.tag_class = :UNIVERSAL
+    pint = OpenSSL::ASN1.decode(dup.to_der)
     assert_equal(1, pint.value)
     assert_equal(der, p.to_der)
   end
@@ -751,23 +782,24 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     end
     
     h = helper.new
-    h.a = "1.2.3.4.5"
+    obj_id = OpenSSL::ASN1::ObjectId.new("1.2.3.4.5")
+    h.a = obj_id
     asn1 = h.to_asn1
     
     p = template.parse(asn1.to_der)
     assert_nil(p.c)
     assert_equal(1, p.b)
-    assert_equal("1.2.3.4.5", p.a)
+    assert_equal(obj_id.to_der, p.a.to_der)
     
     h = helper.new
-    h.a = "1.2.3.4.5"
+    h.a = obj_id
     h.c = "a"
     asn1 = h.to_asn1
     
     p = template.parse(asn1.to_der)
     assert_equal("a", p.c)
     assert_equal(1, p.b)
-    assert_equal("1.2.3.4.5", p.a)
+    assert_equal(obj_id.to_der, p.a.to_der)
   end
   
   def test_default_primitive_parse_at_end
@@ -791,23 +823,24 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     end
     
     h = helper.new
-    h.a = "1.2.3.4.5"
+    obj_id = OpenSSL::ASN1::ObjectId.new("1.2.3.4.5")
+    h.a = obj_id
     asn1 = h.to_asn1
     
     p = template.parse(asn1.to_der)
     assert_nil(p.b)
     assert_equal(1, p.c)
-    assert_equal("1.2.3.4.5", p.a)
+    assert_equal(obj_id.to_der, p.a.to_der)
     
     h = helper.new
-    h.a = "1.2.3.4.5"
+    h.a = obj_id
     h.b = "a"
     asn1 = h.to_asn1
     
     p = template.parse(asn1.to_der)
     assert_equal("a", p.b)
     assert_equal(1, p.c)
-    assert_equal("1.2.3.4.5", p.a)
+    assert_equal(obj_id.to_der, p.a.to_der)
   end
   
   def test_default_sequence_of
@@ -1838,6 +1871,40 @@ class  OpenSSL::TestASN1 < Test::Unit::TestCase
     p = template.parse(OpenSSL::ASN1.decode(der))
     
     assert_equal(value, p.name)
+    assert_equal(der, p.to_der)
+  end
+  
+  def check_object_id_tagged(tagging)
+    template = Class.new do
+      include OpenSSL::ASN1::Template
+
+      asn1_declare :SEQUENCE do
+        asn1_object_id :a, { tag: 0, tagging: tagging }
+      end
+    end
+
+    t = template.new
+    obj_id = OpenSSL::ASN1::ObjectId.new("1.2.3.4.5")
+    t.a = obj_id
+    asn1 = t.to_asn1
+    assert_universal(OpenSSL::ASN1::SEQUENCE, asn1)
+    assert_equal(1, asn1.value.size)
+    if tagging == :EXPLICIT
+      data = asn1.value.first
+      assert_tagged(0, :EXPLICIT, data)
+      assert_equal(1, data.value.size)
+      asn1prim = data.value.first
+    else
+      asn1prim = asn1.value.first
+      assert_tagged(0, :IMPLICIT, asn1prim)
+    end
+    
+    assert_equal("1.2.3.4.5", asn1prim.value)
+
+    der = asn1.to_der
+    p = template.parse(der)
+    pp p
+    assert_equal(obj_id.to_der, p.a.to_der)
     assert_equal(der, p.to_der)
   end
   

@@ -1,9 +1,9 @@
 == OpenSSL::ASN1::Template
 
 === asn1_object_id
-Leave their value as OpenSSL::ASN1::ObjectId instead of setting
-only the string value. Otherwise equality tests are only
-possible when creating temporary ObjectIds
+
+need an equality test, that is based on the byte representation of its
+value. to_der doesn't really work since it also includes tag.
 
 === asn1_sequence_of, asn1_set_of
 
