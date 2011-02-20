@@ -49,11 +49,6 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
       
       def to_asn1(obj, definition)
-        if definition[:type] == OpenSSL::ASN1::Null
-          return nil if optional(definition[:options])
-          return type_new(nil, definition[:type], tag(definition[:options]), tagging(definition[:options]))
-        end
-
         value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
 
@@ -189,27 +184,26 @@ module OpenSSL::ASN1::Template
         tagging = tagging(definition[:options])
         value = value_raise_or_default(obj.send(definition[:name]), name, definition[:options])
         return nil if value == nil || value == default(definition[:options])
-        inf_length = value.instance_variable_get(:@infinite_length)
 
-        tag = tag || value.tag
-        unless tagging 
-          if value.respond_to?(:tagging)
-            tagging = value.tagging
-          end
+        #shortcut if value was parsed -> it has the right form already
+        if value.instance_variable_get(:@parsed)
+          return value
         end
 
-        encode_explicit(value, tag, tagging, tag_class, inf_length)
+        inf_length = value.instance_variable_get(:@infinite_length)
+        tag = tag || value.tag
+        encode(value, tag, tagging, tag_class, inf_length)
       end
       
       private
       
-      def encode_explicit(value, tag, tagging, tag_class, inf_length)
+      def encode(value, tag, tagging, tag_class, inf_length)
         #Changing value here should be fine, it's only related to this instance,
         #not the global definition
         if tagging == :EXPLICIT
-          if value.class == OpenSSL::ASN1::ASN1Data #asn1_any, already wrapped
-            return value
-          end
+          #if value.class == OpenSSL::ASN1::ASN1Data #asn1_any, already wrapped
+          #  return value
+          #end
           
           #try to make inner untagged
           value.tag = default_tag(value)
@@ -335,6 +329,58 @@ module OpenSSL::ASN1::Template
         raise OpenSSL::ASN1::ASN1Error.new("Found no definition for "+
           "#{choice_val.type} in Choice")
       end
+    end
+  end
+
+  class NullEncoder
+    class << self
+      include TypeEncoder, TemplateUtil
+
+      def to_asn1(obj, definition)
+        return nil if optional(definition[:options])
+        type_new(nil, definition[:type], tag(definition[:options]), tagging(definition[:options]))
+      end
+    end
+  end
+
+  class ObjectIdEncoder
+    class << self
+      include TypeEncoder, TemplateUtil
+
+      def to_asn1(obj, definition)
+        tag = tag(definition[:options])
+        tag_class = determine_tag_class(tag)
+
+        tagging = tagging(definition[:options])
+        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
+        return nil if value == nil || value == default(definition[:options])
+
+        #shortcut if value was parsed and not explicitly tagged-> it has the right form already
+        if value.instance_variable_get(:@parsed) && !tagging
+          return value
+        end
+        # tag is set, since tagging is set
+        encode(value, tag, tagging, tag_class)
+      end
+
+      private
+
+      def encode(value, tag, tagging, tag_class)
+        #Changing value here should be fine.
+        if tagging == :EXPLICIT
+          #try to make inner untagged
+          value.tag = OpenSSL::ASN1::OBJECT
+          value.tagging = nil
+          value.tag_class = :UNIVERSAL
+          OpenSSL::ASN1::ASN1Data.new([value], tag, tag_class)
+        else
+          value.tag = tag
+          value.tagging = tagging
+          value.tag_class = tag_class
+          value
+        end
+      end
+
     end
   end
 

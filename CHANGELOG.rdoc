@@ -1,5 +1,18 @@
+=== 0.2.0 / 2011-02-20 [emboss]
+* NullEncoder and NullParser
+* Optimization for parsed Any values
+* asn1_object_id: keep the ASN1 object to allow equality tests
+
 === 0.2.0 / 2011-02-19 [emboss]
 * Adopted changes in ruby_certificate
+
+   === 0.2.0 / 2011-02-19 [emboss]
+* SignedData: support for verifying a SignerInfo
+
+ === 0.2.0 / 2011-02-19 [emboss]
+* Added convenience methods for SignedData and Certificate
+* Added DistinguishedName convenience methods
+* SignedData: support for signing a SignerInfo
 
 === 0.2.0 / 2011-02-18 [emboss]
 * sync with original
