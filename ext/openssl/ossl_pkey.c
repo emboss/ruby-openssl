@@ -8,6 +8,10 @@
  * This program is licenced under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
+#include <openssl/x509.h>
+#include <openssl/bio.h>
+#include <openssl/pem.h>
+
 #include "ossl.h"
 
 /*
@@ -66,22 +70,52 @@ ossl_pkey_new(EVP_PKEY *pkey)
 }
 
 VALUE
-ossl_pkey_new_from_file(VALUE filename)
+ossl_private_key_new_from_data(int argc, VALUE *argv, VALUE self)
 {
-    FILE *fp;
     EVP_PKEY *pkey;
+    BIO *bio;
+    VALUE data, pass;
+    char *passwd = NULL;
 
-    SafeStringValue(filename);
-    if (!(fp = fopen(RSTRING_PTR(filename), "r"))) {
-	ossl_raise(ePKeyError, "%s", strerror(errno));
+    rb_scan_args(argc, argv, "11", &data, &pass);
+
+    bio = ossl_obj2bio(data);
+    if (!(pkey = d2i_PrivateKey_bio(bio, NULL))) {
+	(void)BIO_reset(bio);
+	if (!NIL_P(pass)) {
+	    passwd = StringValuePtr(pass);
+	}
+	pkey = PEM_read_bio_PrivateKey(bio, NULL, ossl_pem_passwd_cb, passwd);
     }
 
-    pkey = PEM_read_PrivateKey(fp, NULL, ossl_pem_passwd_cb, NULL);
-    fclose(fp);
-    if (!pkey) {
-	ossl_raise(ePKeyError, NULL);
+    BIO_free(bio);
+    if (!pkey)
+	ossl_raise(rb_eArgError, "Could not parse private key");
+    return ossl_pkey_new(pkey);
+}
+
+VALUE
+ossl_public_key_new_from_data(int argc, VALUE *argv, VALUE self)
+{
+    EVP_PKEY *pkey;
+    BIO *bio;
+    VALUE data, pass;
+    char *passwd = NULL;
+
+    rb_scan_args(argc, argv, "11", &data, &pass);
+    
+    bio = ossl_obj2bio(data);
+    if (!(pkey = d2i_PUBKEY_bio(bio, NULL))) {
+	(void)BIO_reset(bio);
+	if (!NIL_P(pass)) {
+	    passwd = StringValuePtr(pass);
+	}
+	pkey = PEM_read_bio_PUBKEY(bio, NULL, ossl_pem_passwd_cb, passwd);
     }
 
+    BIO_free(bio);
+    if (!pkey)
+	ossl_raise(rb_eArgError, "Could not parse public key");
     return ossl_pkey_new(pkey);
 }
 
@@ -220,6 +254,9 @@ Init_ossl_pkey()
     ePKeyError = rb_define_class_under(mPKey, "PKeyError", eOSSLError);
 
     cPKey = rb_define_class_under(mPKey, "PKey", rb_cObject);
+
+    rb_define_module_function(mPKey, "read_public", ossl_public_key_new_from_data, -1);
+    rb_define_module_function(mPKey, "read_private", ossl_private_key_new_from_data, -1);
 
     rb_define_alloc_func(cPKey, ossl_pkey_alloc);
     rb_define_method(cPKey, "initialize", ossl_pkey_initialize, 0);

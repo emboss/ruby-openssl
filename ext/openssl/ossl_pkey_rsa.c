@@ -10,6 +10,9 @@
  */
 #if !defined(OPENSSL_NO_RSA)
 
+#include <openssl/x509.h>
+#include <openssl/pem.h>
+
 #include "ossl.h"
 
 #define GetPKeyRSA(obj, pkey) do { \
@@ -260,7 +263,7 @@ ossl_rsa_export(int argc, VALUE *argv, VALUE self)
 	    ossl_raise(eRSAError, NULL);
 	}
     } else {
-	if (!PEM_write_bio_RSAPublicKey(out, pkey->pkey.rsa)) {
+	if (!PEM_write_bio_RSA_PUBKEY(out, pkey->pkey.rsa)) {
 	    BIO_free(out);
 	    ossl_raise(eRSAError, NULL);
 	}
@@ -289,7 +292,7 @@ ossl_rsa_to_der(VALUE self)
     if(RSA_HAS_PRIVATE(pkey->pkey.rsa))
 	i2d_func = i2d_RSAPrivateKey;
     else
-	i2d_func = i2d_RSAPublicKey;
+	i2d_func = (int (*)(const RSA*, unsigned char**))i2d_RSA_PUBKEY;
     if((len = i2d_func(pkey->pkey.rsa, NULL)) <= 0)
 	ossl_raise(eRSAError, NULL);
     str = rb_str_new(0, len);

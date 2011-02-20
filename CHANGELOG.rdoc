@@ -1,4 +1,9 @@
 === 0.2.0 / 2011-02-20 [emboss]
+* Corrected public key encoding of RSA
+* PEM encryption for EC keys
+* PKey instantiation from DER/PEM
+
+ === 0.2.0 / 2011-02-20 [emboss]
 * Adapted to changes for asn1_object_id
 
 ObjectId comparison is now handled by comparing 'oid',
