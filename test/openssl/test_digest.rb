@@ -77,6 +77,27 @@ class OpenSSL::TestDigest < Test::Unit::TestCase
       assert_equal(sha384_a, encode16(OpenSSL::Digest::SHA384.digest("a")))
       assert_equal(sha512_a, encode16(OpenSSL::Digest::SHA512.digest("a")))
     end
+
+    def test_by_name_and_oid
+      check_digest(OpenSSL::ASN1::ObjectId.new('MD5'))
+      check_digest(OpenSSL::ASN1::ObjectId.new('SHA1'))
+      check_digest(OpenSSL::ASN1::ObjectId.new('SHA224'))
+      check_digest(OpenSSL::ASN1::ObjectId.new('SHA256'))
+      check_digest(OpenSSL::ASN1::ObjectId.new('SHA384'))
+      check_digest(OpenSSL::ASN1::ObjectId.new('SHA512'))
+    end
+
+    private
+
+    def check_digest(oid)
+      d = OpenSSL::Digest.new(oid.sn)
+      assert_not_nil(d)
+      d = OpenSSL::Digest.new(oid.ln)
+      assert_not_nil(d)
+      d = OpenSSL::Digest.new(oid.oid)
+      assert_not_nil(d)
+    end
+
   end
 end
 

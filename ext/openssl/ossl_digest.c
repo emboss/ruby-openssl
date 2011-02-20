@@ -8,6 +8,9 @@
  * This program is licenced under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
+#include <openssl/objects.h>
+#include <openssl/asn1.h>
+
 #include "ossl.h"
 
 #define GetDigest(obj, ctx) do { \
@@ -36,12 +39,16 @@ const EVP_MD *
 GetDigestPtr(VALUE obj)
 {
     const EVP_MD *md;
+    ASN1_OBJECT *oid;
 
     if (TYPE(obj) == T_STRING) {
     	const char *name = StringValueCStr(obj);
 
-        md = EVP_get_digestbyname(name);
-        if (!md)
+        oid = OBJ_txt2obj(name, 0);
+        md = EVP_get_digestbyobj(oid);
+        ASN1_OBJECT_free(oid);
+        
+	if (!md)
             ossl_raise(rb_eRuntimeError, "Unsupported digest algorithm (%s).", name);
     } else {
         EVP_MD_CTX *ctx;
