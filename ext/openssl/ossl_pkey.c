@@ -65,6 +65,19 @@ ossl_pkey_new(EVP_PKEY *pkey)
     return Qnil; /* not reached */
 }
 
+/*
+ *  call-seq:
+ *     OpenSSL::PKey.read_private(string [, pwd ] ) -> PKey
+ *     OpenSSL::PKey.read_private(file [, pwd ]) -> PKey
+ *
+ *  === Parameters
+ *  * +string+ is a DER- or PEM-encoded string containing an arbitrary private
+ *             key.
+ *  * +file+ is an instance of +File+ containing a DER- or PEM-encoded
+ *	     arbitrary private key.
+ *  * +pwd+ is an optional password in case +string+ or +file+ is an encrypted
+ *          PEM resource.
+ */
 VALUE
 ossl_private_key_new_from_data(int argc, VALUE *argv, VALUE self)
 {
@@ -90,6 +103,19 @@ ossl_private_key_new_from_data(int argc, VALUE *argv, VALUE self)
     return ossl_pkey_new(pkey);
 }
 
+/*
+ *  call-seq:
+ *     OpenSSL::PKey.read_public(string [, pwd ] ) -> PKey
+ *     OpenSSL::PKey.read_public(file [, pwd ]) -> PKey
+ *
+ *  === Parameters
+ *  * +string+ is a DER- or PEM-encoded string containing an arbitrary public
+ *             key.
+ *  * +file+ is an instance of +File+ containing a DER- or PEM-encoded
+ *	     arbitrary public key.
+ *  * +pwd+ is an optional password in case +string+ or +file+ is an encrypted
+ *          PEM resource.
+ */
 VALUE
 ossl_public_key_new_from_data(int argc, VALUE *argv, VALUE self)
 {
