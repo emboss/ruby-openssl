@@ -8,10 +8,6 @@
  * This program is licenced under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
-#include <openssl/x509.h>
-#include <openssl/bio.h>
-#include <openssl/pem.h>
-
 #include "ossl.h"
 
 /*

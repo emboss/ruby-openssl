@@ -10,9 +10,6 @@
  */
 #if !defined(OPENSSL_NO_RSA)
 
-#include <openssl/x509.h>
-#include <openssl/pem.h>
-
 #include "ossl.h"
 
 #define GetPKeyRSA(obj, pkey) do { \

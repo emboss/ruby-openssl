@@ -525,8 +525,14 @@ static VALUE ossl_ec_key_to_string(VALUE self, VALUE ciph, VALUE pass, int forma
 /*
  *  call-seq:
  *     key.to_pem   => String
+ *     key.to_pem(cipher, pass_phrase) => String
  *
- *  See the OpenSSL documentation for PEM_write_bio_ECPrivateKey()
+ * Outputs the EC key in PEM encoding.  If +cipher+ and +pass_phrase+ are
+ * given they will be used to encrypt the key.  +cipher+ must be an
+ * OpenSSL::Cipher::Cipher instance. Note that encryption will only be
+ * effective for a private key, public keys will always be encoded in plain
+ * text.
+ *
  */
 static VALUE ossl_ec_key_to_pem(int argc, VALUE *argv, VALUE self)
 {
