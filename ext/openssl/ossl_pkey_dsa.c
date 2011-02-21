@@ -4,6 +4,8 @@
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
  */
+
+
 /*
  * This program is licenced under the same licence as Ruby.
  * (See the file 'LICENCE'.)
@@ -257,7 +259,7 @@ ossl_dsa_export(int argc, VALUE *argv, VALUE self)
 	    ossl_raise(eDSAError, NULL);
 	}
     } else {
-	if (!PEM_write_bio_DSAPublicKey(out, pkey->pkey.dsa)) {
+	if (!PEM_write_bio_DSA_PUBKEY(out, pkey->pkey.dsa)) {
 	    BIO_free(out);
 	    ossl_raise(eDSAError, NULL);
 	}

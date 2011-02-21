@@ -328,11 +328,12 @@ ossl_dh_to_public_key(VALUE self)
     EVP_PKEY *pkey;
     DH *dh;
     VALUE obj;
-
+    
     GetPKeyDH(self, pkey);
     dh = DHparams_dup(pkey->pkey.dh); /* err check perfomed by dh_instance */
+    dh->pub_key = BN_dup(pkey->pkey.dh->pub_key); /* only g and p were dup'ed*/
     obj = dh_instance(CLASS_OF(self), dh);
-    if (obj == Qfalse) {
+    if (obj == Qfalse || !dh->pub_key) {
 	DH_free(dh);
 	ossl_raise(eDHError, NULL);
     }

@@ -1,4 +1,10 @@
-=== 0.2.0 / 2011-02-20 [emboss]
+=== 0.2.0 / 2011-02-21 [emboss]
+* Corrected public key PEM encoding of DSA
+* Copy public key when dup'ing DH keys
+* Prioritized fallbacks for RSA key decoding
+  differently
+
+  === 0.2.0 / 2011-02-20 [emboss]
 * Corrected public key encoding of RSA
 * PEM encryption for EC keys
 * PKey instantiation from DER/PEM
