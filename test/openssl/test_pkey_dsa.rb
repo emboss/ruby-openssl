@@ -22,8 +22,8 @@ class OpenSSL::TestPKeyDSA < Test::Unit::TestCase
   def test_read_public_key_der
     key = OpenSSL::PKey::DSA.new(512).public_key
     der = key.to_der
-    key2 = OpenSSL::PKey.read_private(der)
-    assert(key2.private?)
+    key2 = OpenSSL::PKey.read_public(der)
+    assert(!key2.private?)
     assert_equal(der, key2.to_der)
   end
 
