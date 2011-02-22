@@ -164,10 +164,6 @@ ossl_dsa_initialize(int argc, VALUE *argv, VALUE self)
 	dsa = PEM_read_bio_DSAPrivateKey(in, NULL, ossl_pem_passwd_cb, passwd);
 	if (!dsa) {
 	    (void)BIO_reset(in);
-	    dsa = PEM_read_bio_DSAPublicKey(in, NULL, NULL, NULL);
-	}
-	if (!dsa) {
-	    (void)BIO_reset(in);
 	    dsa = PEM_read_bio_DSA_PUBKEY(in, NULL, NULL, NULL);
 	}
 	if (!dsa) {
@@ -177,6 +173,10 @@ ossl_dsa_initialize(int argc, VALUE *argv, VALUE self)
 	if (!dsa) {
 	    (void)BIO_reset(in);
 	    dsa = d2i_DSA_PUBKEY_bio(in, NULL);
+	}
+	if (!dsa) {
+	    (void)BIO_reset(in);
+	    dsa = PEM_read_bio_DSAPublicKey(in, NULL, NULL, NULL);
 	}
 	BIO_free(in);
 	if (!dsa) ossl_raise(eDSAError, "Neither PUB key nor PRIV key:");
