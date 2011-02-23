@@ -1,4 +1,9 @@
-=== 0.2.0 / 2011-02-21 [emboss]
+=== 0.2.0 / 2011-02-23 [emboss]
+* Simplified Template definitions
+
+:setter hash key has been removed
+
+ === 0.2.0 / 2011-02-21 [emboss]
 * Corrected public key PEM encoding of DSA
 * Copy public key when dup'ing DH keys
 * Prioritized fallbacks for RSA key decoding

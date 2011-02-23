@@ -49,7 +49,7 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
       
       def to_asn1(obj, definition)
-        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
+        value = value_raise_or_default(obj.instance_variable_get(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
 
         if value.instance_variable_get(:@infinite_length)
@@ -70,7 +70,7 @@ module OpenSSL::ASN1::Template
       def to_asn1(obj, definition)
         tag = tag(definition[:options])
 
-        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
+        value = value_raise_or_default(obj.instance_variable_get(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
         
         encode_inf_explicit(value.instance_variable_get(:@definite_value),
@@ -165,7 +165,7 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
       
       def to_asn1(obj, definition)
-        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
+        value = value_raise_or_default(obj.instance_variable_get(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
         val_def = TemplateUtil.dup_definition_with_opts(value.class.instance_variable_get(:@definition), definition[:options])
         val_def[:encoder].to_asn1(value, val_def)
@@ -182,7 +182,7 @@ module OpenSSL::ASN1::Template
         tag_class = determine_tag_class(tag)
 
         tagging = tagging(definition[:options])
-        value = value_raise_or_default(obj.send(definition[:name]), name, definition[:options])
+        value = value_raise_or_default(obj.instance_variable_get(definition[:name]), name, definition[:options])
         return nil if value == nil || value == default(definition[:options])
 
         #shortcut if value was parsed -> it has the right form already
@@ -264,7 +264,7 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
           
       def to_asn1(obj, definition, type)
-        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
+        value = value_raise_or_default(obj.instance_variable_get(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
         inf_length = value.instance_variable_get(:@infinite_length)
 
@@ -296,7 +296,7 @@ module OpenSSL::ASN1::Template
       include TypeEncoder, TemplateUtil
           
       def to_asn1(obj, definition)
-        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
+        value = value_raise_or_default(obj.instance_variable_get(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
         unless value.is_a? ChoiceValue
           raise ArgumentError.new("ChoiceValue expected for #{definition[:name]}")
@@ -307,7 +307,7 @@ module OpenSSL::ASN1::Template
         if tmp_def[:encoder] == ConstructiveEncoder
           tmp_val = value.value #values to be encoded are in a helper object
         else
-          tmp_def[:name] = :value
+          tmp_def[:name] = :@value
           tmp_val = value
         end
 
@@ -352,7 +352,7 @@ module OpenSSL::ASN1::Template
         tag_class = determine_tag_class(tag)
 
         tagging = tagging(definition[:options])
-        value = value_raise_or_default(obj.send(definition[:name]), definition[:name], definition[:options])
+        value = value_raise_or_default(obj.instance_variable_get(definition[:name]), definition[:name], definition[:options])
         return nil if value == nil || value == default(definition[:options])
 
         #shortcut if value was parsed and not explicitly tagged-> it has the right form already

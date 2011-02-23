@@ -85,12 +85,12 @@ module OpenSSL::ASN1::Template
         if asn1.infinite_length
           return PrimitiveParserInfinite.parse(obj, asn1, definition)
         end
-        unless match(asn1, definition[:type], definition[:setter], definition[:options])
+        unless match(asn1, definition[:type], definition[:name], definition[:options])
           return false
         end
 
         value = unpack_tagged(asn1, definition[:type], tagging(definition[:options])).value
-        obj.send(definition[:setter], value)
+        obj.instance_variable_set(definition[:name], value)
         true
       end
     end
@@ -101,7 +101,7 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
           
       def parse(obj, asn1, definition)
-        unless match(asn1, definition[:type], definition[:setter], definition[:options])
+        unless match(asn1, definition[:type], definition[:name], definition[:options])
           return false
         end
         wrapped_value = unpack_tagged(asn1, definition[:type], tagging(definition[:options]))
@@ -109,11 +109,11 @@ module OpenSSL::ASN1::Template
             
         unless value.respond_to?(:each)
           value = single_value(wrapped_value, definition[:type])
-          obj.send(definition[:setter], value)
+          obj.instance_variable_set(definition[:name], value)
           return true
         end
           
-        obj.send(definition[:setter], convert_to_definite(value, OpenSSL::ASN1::CLASS_TAG_MAP[definition[:type]]))
+        obj.instance_variable_set(definition[:name], convert_to_definite(value, OpenSSL::ASN1::CLASS_TAG_MAP[definition[:type]]))
         true
       end
       
@@ -210,7 +210,7 @@ module OpenSSL::ASN1::Template
       def parse(obj, asn1, definition)
         instance = definition[:type].parse(asn1, definition[:options], true)
         return false unless instance
-        obj.send(definition[:setter], instance) #TODO if setter ?
+        obj.instance_variable_set(definition[:name], instance) #TODO if setter ?
         true
       end
     end
@@ -224,7 +224,7 @@ module OpenSSL::ASN1::Template
         if optional(definition[:options])
           if tag(definition[:options])
             #won't raise, tag prevents trouble with type==nil
-            unless match(asn1, nil, definition[:setter], definition[:options])
+            unless match(asn1, nil, definition[:name], definition[:options])
               return false
             end
           else
@@ -233,7 +233,7 @@ module OpenSSL::ASN1::Template
         end
 
         asn1.instance_variable_set(:@parsed, true) #allows shortcut for re-encoding
-        obj.send(definition[:setter], asn1)
+        obj.instance_variable_set(definition[:name], asn1)
         true
       end
     end
@@ -262,7 +262,7 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
           
       def parse(obj, asn1, definition, type)
-        unless match(asn1, type, definition[:setter], definition[:options])
+        unless match(asn1, type, definition[:name], definition[:options])
           return false
         end
 
@@ -277,7 +277,7 @@ module OpenSSL::ASN1::Template
             "Expected EOC. Got #{seq[seq.size - 1].tag}")
         end
               
-        obj.send(definition[:setter], ret)
+        obj.instance_variable_set(definition[:name], ret)
         true
       end
 
@@ -307,11 +307,10 @@ module OpenSSL::ASN1::Template
         deff = match_inner_def(asn1, definition)
         return false unless deff
 
-        deff[:name] = :value
-        deff[:setter] = :value=
+        deff[:name] = :@value
         choice_val = ChoiceValue.new(deff[:type], nil, tag(deff[:options]))
         deff[:parser].parse(choice_val, asn1, deff)
-        obj.send(definition[:setter], choice_val)
+        obj.instance_variable_set(definition[:name], choice_val)
         true
       end
           
@@ -358,7 +357,8 @@ module OpenSSL::ASN1::Template
         unless PrimitiveParser.parse(obj, asn1, definition)
           return false
         end
-        obj.send(definition[:setter], obj.send(definition[:name]).force_encoding('UTF-8'))
+        obj.instance_variable_set(definition[:name],
+          obj.instance_variable_get(definition[:name]).force_encoding('UTF-8'))
         true
       end
     end
@@ -369,7 +369,7 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
 
       def parse(obj, asn1, definition)
-        unless match(asn1, definition[:type], definition[:setter], definition[:options])
+        unless match(asn1, definition[:type], definition[:name], definition[:options])
           return false
         end
         # shortcut - won't set value
@@ -384,13 +384,13 @@ module OpenSSL::ASN1::Template
       include TypeParser, TemplateUtil
 
       def parse(obj, asn1, definition)
-        unless match(asn1, definition[:type], definition[:setter], definition[:options])
+        unless match(asn1, definition[:type], definition[:name], definition[:options])
           return false
         end
         # set the ASN1 object instead of only the value
         value = unpack_tagged(asn1, definition[:type], tagging(definition[:options]))
         value.instance_variable_set(:@parsed, true)
-        obj.send(definition[:setter], value)
+        obj.instance_variable_set(definition[:name], value)
         true
       end
     end

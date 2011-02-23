@@ -48,7 +48,6 @@ module OpenSSL::ASN1::Template
         {
           type: definition[:type],
           name: definition[:name],
-          setter: definition[:setter],
           inner_def: definition[:inner_def],
           min_size: definition[:min_size],
           options: options,
@@ -90,7 +89,7 @@ module OpenSSL::ASN1
   #includes this module.
   #available options { optional: false, tag: nil, 
   #                    tagging: nil, default: nil }
-  #definition { type, name, setter, inner_def, options, parser, encoder }
+  #definition { type, name, inner_def, options, parser, encoder }
   module Template
       
     def self.included(base)
@@ -147,7 +146,7 @@ module OpenSSL::ASN1
 
     def to_asn1_iv(iv)
       self.class.instance_variable_get(:@definition)[:inner_def].each do |deff|
-        if deff[:name] && deff[:name] == iv
+        if deff[:name] && deff[:name].slice(1, deff[:name].size).to_sym == iv
           return deff[:encoder].to_asn1(self, deff)
         end
       end
@@ -194,12 +193,12 @@ module OpenSSL::ASN1
         unless parse
           mandatory = !(deff[:options] && (deff[:options][:optional] || deff[:options][:default]))
           if mandatory && deff[:type] && deff[:type].respond_to?(:parse) && deff[:name]
-            send(deff[:setter], deff[:type].new(deff[:options]))
+            instance_variable_set(deff[:name], deff[:type].new(deff[:options]))
           end
         end
         
         if deff[:options] && deff[:options][:default] != nil
-          send(deff[:setter], deff[:options][:default])
+          instance_variable_set(deff[:name], deff[:options][:default])
         end
       end
     end
@@ -217,8 +216,7 @@ module OpenSSL::ASN1
 
         unless template_type == :SEQUENCE || template_type == :SET
           attr_accessor :value
-          @definition[:name] = :value
-          @definition[:setter] = :value=
+          @definition[:name] = :@value
         end
 
         eigenclass = class << self; self; end
@@ -230,12 +228,16 @@ module OpenSSL::ASN1
                                           encoder=PrimitiveEncoder|
             eigenclass.instance_eval do
               define_method meth_name do |name=nil, opts=nil|
-                attr_accessor name if name
-                
-                deff = { type: type, 
-                         name: name,
-                         setter: name.to_s + '=',
-                         options: opts, 
+                if name
+                  attr_accessor name
+                  iv_name = ('@' + name.to_s).to_sym
+                else
+                  iv_name = nil
+                end
+
+                deff = { type: type,
+                         name: iv_name,
+                         options: opts,
                          encoder: encoder,
                          parser: parser }
                 cur_def[:inner_def] << deff
@@ -247,10 +249,15 @@ module OpenSSL::ASN1
           define_method :declare_special_typed do |meth_name, encoder, parser|
             eigenclass.instance_eval do
               define_method meth_name do |type, name=nil, opts=nil|
-                attr_accessor name if name
+                if name
+                  attr_accessor name
+                  iv_name = ('@' + name.to_s).to_sym
+                else
+                  iv_name = nil
+                end
+
                 deff = { type: type,
-                         name: name,
-                         setter: name.to_s + '=',
+                         name: iv_name,
                          options: opts,
                          encoder: encoder,
                          parser: parser }
@@ -261,10 +268,15 @@ module OpenSSL::ASN1
           end
             
           define_method :asn1_choice do |name, opts=nil, &proc|
-            attr_accessor name
+            if name
+              attr_accessor name
+              iv_name = ('@' + name.to_s).to_sym
+            else
+              iv_name = nil
+            end
+
             tmp_def = cur_def
-            cur_def = { name: name,
-                        setter: name.to_s + '=',
+            cur_def = { name: iv_name,
                         options: opts,
                         inner_def: Array.new,
                         encoder: ChoiceEncoder,
