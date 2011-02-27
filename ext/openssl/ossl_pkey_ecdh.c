@@ -10,7 +10,6 @@
  */
 
 #include "ossl.h"
-#include <string.h>
 
 #if !defined(OPENSSL_NO_EC) && (OPENSSL_VERSION_NUMBER >= 0x0090802fL)
 
@@ -135,42 +134,44 @@ ossl_ecdh_get_group(VALUE self) {
 
 static VALUE
 ossl_ecdh_ansi_x963_kdf(VALUE shared_secret, VALUE size) {
-    int isize, iterations, i, min_length, outsize;
+    int isize, iterations, i, outsize, secret_len;
     const unsigned char *secret;
     unsigned char *round_input;
     unsigned char *out;
+    unsigned char *outp;
     int counter = 0;
     VALUE retval;
 
     isize = NUM2INT(size);
     if (isize <= 0)
         ossl_raise(rb_eArgError, "Requested key length must be positive");
-    secret = RSTRING_PTR(shared_secret);
+    secret = StringValueCStr(shared_secret);
     iterations = isize / SHA_DIGEST_LENGTH + 1;
-
-    if (!(round_input = OPENSSL_malloc(sizeof(unsigned char *) * RSTRING_LEN(shared_secret) + sizeof(int) + 1)))
+    secret_len = strlen(secret);
+    if (!(round_input = OPENSSL_malloc(secret_len + sizeof(int))))
         ossl_raise(eECDHError, NULL);
+    outsize = iterations * SHA_DIGEST_LENGTH + 1;
 
-    min_length = isize < SHA_DIGEST_LENGTH ? SHA_DIGEST_LENGTH : isize;
-    outsize = sizeof(unsigned char *) * iterations * min_length + 1;
     if (!(out = OPENSSL_malloc(outsize))) {
         OPENSSL_free(round_input);
         ossl_raise(eECDHError, NULL);
     }
 
+    outp = out;
     for (i = 0; i < iterations; i++) {
-        strcat(round_input, secret);
-        strcat(round_input, (char*)((counter >> 3) & 0xFF));
-        strcat(round_input, (char*)((counter >> 2) & 0xFF));
-        strcat(round_input, (char*)((counter >> 1) & 0xFF));
-        strcat(round_input, (char*)(counter & 0xFF));
-        SHA1(round_input, strlen(round_input), out);
-        out += SHA_DIGEST_LENGTH;
+        memcpy(round_input, secret, secret_len);
+        round_input[secret_len] = (char)((counter >> 3) & 0xFF);
+        round_input[secret_len + 1] = (char)((counter >> 2) & 0xFF);
+        round_input[secret_len + 2] = (char)((counter >> 1) & 0xFF);
+        round_input[secret_len + 3] = (char)(counter & 0xFF);
+        
+        SHA1(round_input, secret_len + sizeof(int), outp);
+        outp += SHA_DIGEST_LENGTH;
         counter++;
     }
-    
+
     OPENSSL_free(round_input);
-    retval = rb_str_new(out, outsize);
+    retval = rb_str_new(out, isize);
     OPENSSL_free(out);
     return retval;
 }
