@@ -89,13 +89,6 @@ extern VALUE eEC_POINT;
 VALUE ossl_ec_new(EVP_PKEY *);
 void Init_ossl_ec(void);
 
-/*
- * ECDH
- */
-extern VALUE cECDH;
-extern VALUE eECDHError;
-void Init_ossl_ecdh(void);
-
 
 #define OSSL_PKEY_BN(keytype, name)					\
 /*									\

@@ -289,12 +289,11 @@ Init_ossl_pkey()
     id_private_q = rb_intern("private?");
 
     /*
-     * INIT rsa, dsa, dh, ec, ecdh
+     * INIT rsa, dsa, dh, ec
      */
     Init_ossl_rsa();
     Init_ossl_dsa();
     Init_ossl_dh();
     Init_ossl_ec();
-    Init_ossl_ecdh();
 }
 

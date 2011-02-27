@@ -619,33 +619,153 @@ static VALUE ossl_ec_key_check_key(VALUE self)
     return Qtrue;
 }
 
-/*
- *  call-seq:
- *     key.dh_compute_key(pubkey)   => String
- *
- *  See the OpenSSL documentation for ECDH_compute_key()
- */
-static VALUE ossl_ec_key_dh_compute_key(VALUE self, VALUE pubkey)
-{
-    EC_KEY *ec;
-    EC_POINT *point;
+static VALUE
+int_ossl_ecdh_ansi_x963_kdf(VALUE shared_secret, VALUE size) {
+    int tmp, isize, iterations, i, outsize, secret_len;
+    const unsigned char *secret;
+    unsigned char *round_input, *out, *outp;
+    int counter = 1;
+    VALUE retval;
+
+    if (NIL_P(size)) {
+	isize = SHA_DIGEST_LENGTH;
+    }
+    else {
+	tmp = NUM2INT(size);
+	if (tmp <= 0)
+	    ossl_raise(rb_eArgError, "Requested key length must be positive");
+	if (tmp % 8 != 0)
+	    ossl_raise(rb_eArgError, "Key bit size must be a multiple of 8");
+
+	isize = tmp / 8;
+    }
+
+    secret = RSTRING_PTR(shared_secret);
+    iterations = isize / SHA_DIGEST_LENGTH + 1;
+    secret_len = RSTRING_LENINT(shared_secret);
+    if (!(round_input = OPENSSL_malloc(secret_len + 4))) {
+        ossl_raise(eECError, NULL);
+	return Qnil;
+    }
+    outsize = iterations * SHA_DIGEST_LENGTH + 1;
+
+    if (!(out = OPENSSL_malloc(outsize))) {
+        OPENSSL_free(round_input);
+        ossl_raise(eECError, NULL);
+	return Qnil;
+    }
+
+    outp = out;
+    for (i = 0; i < iterations; i++) {
+        memcpy(round_input, secret, secret_len);
+        round_input[secret_len] = (char)((counter >> 3) & 0xFF);
+        round_input[secret_len + 1] = (char)((counter >> 2) & 0xFF);
+        round_input[secret_len + 2] = (char)((counter >> 1) & 0xFF);
+        round_input[secret_len + 3] = (char)(counter & 0xFF);
+
+        SHA1(round_input, secret_len + 4, outp);
+	
+        outp += SHA_DIGEST_LENGTH;
+        counter++;
+    }
+
+    OPENSSL_free(round_input);
+    retval = rb_str_new(out, isize);
+    OPENSSL_free(out);
+    return retval;
+}
+
+static VALUE
+int_ossl_ecdh_kdf_cb(VALUE shared_secret, VALUE size) {
+    VALUE ary;
+
+    if (NIL_P(size)) {
+	size = INT2NUM(SHA_DIGEST_LENGTH);
+    }
+
+    ary = rb_ary_new2(2);
+    rb_ary_store(ary, 0, shared_secret);
+    rb_ary_store(ary, 1, size);
+
+    return rb_yield(ary);
+}
+
+static VALUE
+int_ossl_ecdh_compute_secret(VALUE ec_obj, VALUE pubkey ) {
     int buf_len;
     VALUE str;
+    EC_KEY *ec;
+    EC_POINT *point;
 
-    Require_EC_KEY(self, ec);
+    Require_EC_KEY(ec_obj, ec);
     SafeRequire_EC_POINT(pubkey, point);
 
-/* BUG: need a way to figure out the maximum string size */
+    /* BUG: need a way to figure out the maximum string size */
     buf_len = 1024;
     str = rb_str_new(0, buf_len);
-/* BUG: take KDF as a block */
     buf_len = ECDH_compute_key(RSTRING_PTR(str), buf_len, point, ec, NULL);
     if (buf_len < 0)
          ossl_raise(eECError, "ECDH_compute_key");
 
-    rb_str_resize(str, buf_len);
+    return rb_str_resize(str, buf_len);
+}
 
-    return str;
+/*
+ *  call-seq:
+ *     key.dh_compute_key(pubkey)   => String
+ *     key.dh_compute_key(pubkey, size)   => String
+ *     key.dh_compute_key(pubkey, size, static_privkey, static_pubkey)  => String
+ *
+ *  === Parameters
+ *  * +pubkey+ is the public OpenSSL::PKey::EC::Point instance of the key
+ *             agreement peer.
+ *  * +size+ is an optional Fixnum representing the desired output length in
+ *           bits - e.g. if you'd like to compute a symmetric key for AES 128,
+ *           size would be specified as 128. If not provided, the output size
+ *           will be equal to the hash function used in the KDF.
+ * * +static_privkey+ an OpenSSL::PKey::EC instance that serves as the "static
+ *                    private key" in the C(2, 2, ECC CDH) scheme (cf. ch.
+ *                    6.1.1.2 in NIST SP800-56A)
+ * * +static_pubkey+ a public OpenSSL::PKey::EC::Point that serves as the peer's
+ *                   "static public key" in the C(2, 2, ECC CDH) scheme
+ *
+ *  Returns a string containing a shared secret computed from the other party's
+ *  public EC key by the default key derivation function (or KDF).
+ *  If no "static keys" are provided the secret is derived using the
+ *  C(2, 0, ECC CDH) scheme described in NIST SP800-56A, where this EC instance
+ *  and +pubkey+ are interpreted to be the ephemeral keys.
+ *  The default KDF used is the "ANSI X9.63 Key Derivation Function" (cf.
+ *  "SEC 1: Elliptic Curve Cryptography.", ch. 3.6.1).
+ *  To use a different KDF you may also provide a block that takes two
+ *  arguments (the initial shared secret, and the desired key length) and
+ *  returns the final value of the computed key.
+ *
+ * === Example
+ *
+ * symm_key = ec.compute_key(pub_ec, 128) do |shared_secret, size|
+ *   key = OpenSSL::Digest::SHA1.digest(shared_secret)
+ *   key[0..size]
+ * end
+ */
+static VALUE ossl_ec_key_dh_compute_key(int argc, VALUE *argv, VALUE self)
+{
+    VALUE pubkey, size, static_pubkey, static_privkey, str;
+    
+    rb_scan_args(argc, argv, "13", &pubkey, &size, &static_privkey, &static_pubkey);
+    
+    str = int_ossl_ecdh_compute_secret(self, pubkey);
+    if (!NIL_P(static_privkey)) {
+	if (NIL_P(static_pubkey)) {
+	    ossl_raise(rb_eArgError, "Static public key is missing");
+	    return Qnil;
+	}
+	VALUE str2 = int_ossl_ecdh_compute_secret(static_privkey, static_pubkey);
+	rb_funcall(str, rb_intern("concat"), 1, str2);
+    }
+
+    return rb_block_given_p() ?
+           int_ossl_ecdh_kdf_cb(str, size) :
+           int_ossl_ecdh_ansi_x963_kdf(str, size);
 }
 
 /* sign_setup */
@@ -1519,7 +1639,7 @@ void Init_ossl_ec()
     rb_define_method(cEC, "generate_key", ossl_ec_key_generate_key, 0);
     rb_define_method(cEC, "check_key", ossl_ec_key_check_key, 0);
 
-    rb_define_method(cEC, "dh_compute_key", ossl_ec_key_dh_compute_key, 1);
+    rb_define_method(cEC, "dh_compute_key", ossl_ec_key_dh_compute_key, -1);
     rb_define_method(cEC, "dsa_sign_asn1", ossl_ec_key_dsa_sign_asn1, 1);
     rb_define_method(cEC, "dsa_verify_asn1", ossl_ec_key_dsa_verify_asn1, 2);
 /* do_sign/do_verify */
