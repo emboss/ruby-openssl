@@ -152,6 +152,7 @@ VALUE ossl_ec_new(EVP_PKEY *pkey)
  *     OpenSSL::PKey::EC.new(ec_group)
  *     OpenSSL::PKey::EC.new("secp112r1")
  *     OpenSSL::PKey::EC.new(pem_string)
+ *     OpenSSL::PKey::EC.new(pem_string [, pwd])
  *     OpenSSL::PKey::EC.new(der_string)
  *
  *  See the OpenSSL documentation for:
@@ -163,6 +164,7 @@ static VALUE ossl_ec_key_initialize(int argc, VALUE *argv, VALUE self)
     EC_KEY *ec = NULL;
     VALUE arg, pass;
     VALUE group = Qnil;
+    char *passwd = NULL;
 
     GetPKey(self, pkey);
     if (pkey->pkey.ec)
@@ -183,11 +185,13 @@ static VALUE ossl_ec_key_initialize(int argc, VALUE *argv, VALUE self)
         	group = arg;
         } else {
             BIO *in = ossl_obj2bio(arg);
-
-            ec = PEM_read_bio_ECPrivateKey(in, NULL, NULL, NULL);
+            if (!NIL_P(pass)) {
+                passwd = StringValuePtr(pass);
+            }
+            ec = PEM_read_bio_ECPrivateKey(in, NULL, ossl_pem_passwd_cb, passwd);
             if (!ec) {
                 (void)BIO_reset(in);
-                ec = PEM_read_bio_EC_PUBKEY(in, NULL, NULL, NULL);
+                ec = PEM_read_bio_EC_PUBKEY(in, NULL, ossl_pem_passwd_cb, passwd);
             }
             if (!ec) {
                 (void)BIO_reset(in);

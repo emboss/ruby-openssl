@@ -1,4 +1,7 @@
-=== 0.2.0 / 2011-02-23 [emboss]
+=== 0.2.0 / 2011-02-27 [emboss]
+* Started ECDH implementation
+
+ === 0.2.0 / 2011-02-23 [emboss]
 * Simplified Template definitions
 
 :setter hash key has been removed
