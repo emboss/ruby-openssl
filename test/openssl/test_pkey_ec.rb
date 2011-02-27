@@ -63,6 +63,18 @@ class OpenSSL::TestPKeyEC < Test::Unit::TestCase
     #omit pem equality check, will be different due to cipher iv
   end
 
+  def test_read_ec_pem_pw
+    group = OpenSSL::PKey::EC::Group.new('prime256v1')
+    ec = OpenSSL::PKey::EC.new(group)
+    ec.generate_key
+    pem = ec.to_pem(OpenSSL::Cipher.new('AES-128-CBC'), 'secret')
+    ec2 = OpenSSL::PKey::EC.new(pem, 'secret')
+    assert(ec2.private_key?)
+    ec3 = OpenSSL::PKey::EC.new(pem) { 'secret' }
+    assert(ec3.private_key?)
+    assert_equal(ec.to_pem, ec3.to_pem)
+  end
+
   def test_compute_key_block
     group = OpenSSL::PKey::EC::Group.new('prime256v1')
     ecdh = OpenSSL::PKey::EC.new(group)
