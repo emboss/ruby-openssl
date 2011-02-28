@@ -658,9 +658,9 @@ int_ossl_ecdh_ansi_x963_kdf(VALUE shared_secret, VALUE size) {
     outp = out;
     for (i = 0; i < iterations; i++) {
         memcpy(round_input, secret, secret_len);
-        round_input[secret_len] = (char)((counter >> 3) & 0xFF);
-        round_input[secret_len + 1] = (char)((counter >> 2) & 0xFF);
-        round_input[secret_len + 2] = (char)((counter >> 1) & 0xFF);
+        round_input[secret_len] = (char)((counter >> 24) & 0xFF);
+        round_input[secret_len + 1] = (char)((counter >> 16) & 0xFF);
+        round_input[secret_len + 2] = (char)((counter >> 8) & 0xFF);
         round_input[secret_len + 3] = (char)(counter & 0xFF);
 
         SHA1(round_input, secret_len + 4, outp);
