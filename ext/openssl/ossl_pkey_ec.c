@@ -620,77 +620,6 @@ static VALUE ossl_ec_key_check_key(VALUE self)
 }
 
 static VALUE
-int_ossl_ecdh_ansi_x963_kdf(VALUE shared_secret, VALUE size) {
-    int tmp, isize, iterations, i, outsize, secret_len;
-    const unsigned char *secret;
-    unsigned char *round_input, *out, *outp;
-    int counter = 1;
-    VALUE retval;
-
-    if (NIL_P(size)) {
-	isize = SHA_DIGEST_LENGTH;
-    }
-    else {
-	tmp = NUM2INT(size);
-	if (tmp <= 0)
-	    ossl_raise(rb_eArgError, "Requested key length must be positive");
-	if (tmp % 8 != 0)
-	    ossl_raise(rb_eArgError, "Key bit size must be a multiple of 8");
-
-	isize = tmp / 8;
-    }
-
-    secret = RSTRING_PTR(shared_secret);
-    iterations = isize / SHA_DIGEST_LENGTH + 1;
-    secret_len = RSTRING_LENINT(shared_secret);
-    if (!(round_input = OPENSSL_malloc(secret_len + 4))) {
-        ossl_raise(eECError, NULL);
-	return Qnil;
-    }
-    outsize = iterations * SHA_DIGEST_LENGTH + 1;
-
-    if (!(out = OPENSSL_malloc(outsize))) {
-        OPENSSL_free(round_input);
-        ossl_raise(eECError, NULL);
-	return Qnil;
-    }
-
-    outp = out;
-    for (i = 0; i < iterations; i++) {
-        memcpy(round_input, secret, secret_len);
-        round_input[secret_len] = (char)((counter >> 24) & 0xFF);
-        round_input[secret_len + 1] = (char)((counter >> 16) & 0xFF);
-        round_input[secret_len + 2] = (char)((counter >> 8) & 0xFF);
-        round_input[secret_len + 3] = (char)(counter & 0xFF);
-
-        SHA1(round_input, secret_len + 4, outp);
-	
-        outp += SHA_DIGEST_LENGTH;
-        counter++;
-    }
-
-    OPENSSL_free(round_input);
-    retval = rb_str_new(out, isize);
-    OPENSSL_free(out);
-    return retval;
-}
-
-static VALUE
-int_ossl_ecdh_kdf_cb(VALUE shared_secret, VALUE size) {
-    VALUE ary;
-
-    if (NIL_P(size)) {
-	size = INT2NUM(SHA_DIGEST_LENGTH);
-    }
-
-    ary = rb_ary_new2(2);
-    rb_ary_store(ary, 0, shared_secret);
-    rb_ary_store(ary, 1, size);
-
-    return rb_yield(ary);
-}
-
-static VALUE
 int_ossl_ecdh_compute_secret(VALUE ec_obj, VALUE pubkey ) {
     int buf_len;
     VALUE str;
@@ -764,8 +693,8 @@ static VALUE ossl_ec_key_dh_compute_key(int argc, VALUE *argv, VALUE self)
     }
 
     return rb_block_given_p() ?
-           int_ossl_ecdh_kdf_cb(str, size) :
-           int_ossl_ecdh_ansi_x963_kdf(str, size);
+           ossl_dh_kdf_cb(str, size) :
+           ossl_dh_kdf_ansi_x963_sha1(str, size);
 }
 
 /* sign_setup */

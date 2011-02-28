@@ -170,14 +170,50 @@ class OpenSSL::TestPKeyEC < Test::Unit::TestCase
     assert_equal(ecdh_secret, ecdh2_secret)
   end
 
-  def test_ecdh_kdf_ansi_x963
+  def test_ecdh_kdf_ansi_x963_sha1
     group = OpenSSL::PKey::EC::Group.new('prime256v1')
     ecdh = OpenSSL::PKey::EC.new(group)
     ecdh.generate_key
     ecdh2 = OpenSSL::PKey::EC.new(group)
     ecdh2.generate_key
     ecdh_secret = ecdh.dh_compute_key(ecdh2.public_key, 128)
-    ecdh2_secret = ecdh2.dh_compute_key(ecdh.public_key, 128, &OpenSSL::PKey::KDF::ANSI_X963_SHA1)
+    ecdh2_secret = ecdh2.dh_compute_key(ecdh.public_key,
+                   128,
+                   &OpenSSL::PKey::KeyDerivation.ansi_x963(OpenSSL::Digest::SHA1.new))
+    assert_equal(16, ecdh_secret.bytesize)
+    assert_equal(16, ecdh2_secret.bytesize)
+    assert_equal(ecdh_secret, ecdh2_secret)
+  end
+
+  def test_ecdh_kdf_ecc_cms_shared_info_sha_256
+    group = OpenSSL::PKey::EC::Group.new('prime256v1')
+    ecdh = OpenSSL::PKey::EC.new(group)
+    ecdh.generate_key
+    ecdh2 = OpenSSL::PKey::EC.new(group)
+    ecdh2.generate_key
+    ecdh_secret = ecdh.dh_compute_key(ecdh2.public_key,
+                  128,
+                  &OpenSSL::PKey::KeyDerivation.ecc_cms_shared_info("2.16.840.1.101.3.4.1.5", OpenSSL::Digest::SHA1.new))
+    ecdh2_secret = ecdh2.dh_compute_key(ecdh.public_key,
+                  128,
+                  &OpenSSL::PKey::KeyDerivation.ecc_cms_shared_info("2.16.840.1.101.3.4.1.5", OpenSSL::Digest::SHA1.new))
+    assert_equal(16, ecdh_secret.bytesize)
+    assert_equal(16, ecdh2_secret.bytesize)
+    assert_equal(ecdh_secret, ecdh2_secret)
+  end
+
+  def test_ecdh_kdf_nist_800_56a_concatenation_sha_256
+    group = OpenSSL::PKey::EC::Group.new('prime256v1')
+    ecdh = OpenSSL::PKey::EC.new(group)
+    ecdh.generate_key
+    ecdh2 = OpenSSL::PKey::EC.new(group)
+    ecdh2.generate_key
+    ecdh_secret = ecdh.dh_compute_key(ecdh2.public_key,
+                  128,
+                  &OpenSSL::PKey::KeyDerivation.nist_800_56a_concatenation(OpenSSL::Digest::SHA1.new, 'otherinfo'))
+    ecdh2_secret = ecdh2.dh_compute_key(ecdh.public_key,
+                  128,
+                  &OpenSSL::PKey::KeyDerivation.nist_800_56a_concatenation(OpenSSL::Digest::SHA1.new, 'otherinfo'))
     assert_equal(16, ecdh_secret.bytesize)
     assert_equal(16, ecdh2_secret.bytesize)
     assert_equal(ecdh_secret, ecdh2_secret)
