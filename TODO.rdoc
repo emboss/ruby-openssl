@@ -34,7 +34,8 @@ Should be possible with PKey directly?
 === SignerInfo
 * Verify using certificate
 
-=== Digest
-* Digest.new with oid must be possible, sn not always available
-
+=== Key Agreement
+* validate "zeroize"
+* add kdf block facility to PKey::DH
+* RDoc
 
