@@ -100,8 +100,8 @@ class OpenSSL::TestPKeyEC < Test::Unit::TestCase
     ecdh2.generate_key
     ecdh_secret = ecdh.dh_compute_key(ecdh2.public_key, 128)
     ecdh2_secret = ecdh2.dh_compute_key(ecdh.public_key, 128)
-    assert_equal(16, ecdh_secret.size)
-    assert_equal(16, ecdh2_secret.size)
+    assert_equal(16, ecdh_secret.bytesize)
+    assert_equal(16, ecdh2_secret.bytesize)
     assert_equal(ecdh_secret, ecdh2_secret)
   end
 
@@ -112,7 +112,7 @@ class OpenSSL::TestPKeyEC < Test::Unit::TestCase
     ecdh2 = OpenSSL::PKey::EC.new(group)
     ecdh2.generate_key
     ecdh_secret = ecdh.dh_compute_key(ecdh2.public_key)
-    assert_equal(20, ecdh_secret.size) #sha1 20 bytes
+    assert_equal(20, ecdh_secret.bytesize) #sha1 20 bytes
     ecdh.dh_compute_key(ecdh2.public_key) do |shared_secret, size|
       assert_equal(20, size)
       shared_secret
@@ -130,9 +130,9 @@ class OpenSSL::TestPKeyEC < Test::Unit::TestCase
     static2 = OpenSSL::PKey::EC.new(group)
     static2.generate_key
     ecdh_secret = ecdh.dh_compute_key(ecdh2.public_key, 128, static, static2.public_key)
-    assert_equal(16, ecdh_secret.size) #sha1 20 bytes
+    assert_equal(16, ecdh_secret.bytesize) #sha1 20 bytes
     ecdh2_secret = ecdh2.dh_compute_key(ecdh.public_key, 128, static2, static.public_key)
-    assert_equal(16, ecdh2_secret.size)
+    assert_equal(16, ecdh2_secret.bytesize)
     assert_equal(ecdh_secret, ecdh2_secret)
   end
 
@@ -157,6 +157,32 @@ class OpenSSL::TestPKeyEC < Test::Unit::TestCase
     assert_equal(ecdh_secret, ecdh2_secret)
   end
 
+  def test_ecdh_default_large_size
+    group = OpenSSL::PKey::EC::Group.new('prime256v1')
+    ecdh = OpenSSL::PKey::EC.new(group)
+    ecdh.generate_key
+    ecdh2 = OpenSSL::PKey::EC.new(group)
+    ecdh2.generate_key
+    ecdh_secret = ecdh.dh_compute_key(ecdh2.public_key, 2048)
+    ecdh2_secret = ecdh2.dh_compute_key(ecdh.public_key, 2048)
+    assert_equal(256, ecdh_secret.bytesize)
+    assert_equal(256, ecdh2_secret.bytesize)
+    assert_equal(ecdh_secret, ecdh2_secret)
+  end
+
+  def test_ecdh_kdf_ansi_x963
+    group = OpenSSL::PKey::EC::Group.new('prime256v1')
+    ecdh = OpenSSL::PKey::EC.new(group)
+    ecdh.generate_key
+    ecdh2 = OpenSSL::PKey::EC.new(group)
+    ecdh2.generate_key
+    ecdh_secret = ecdh.dh_compute_key(ecdh2.public_key, 128)
+    ecdh2_secret = ecdh2.dh_compute_key(ecdh.public_key, 128, &OpenSSL::PKey::KDF::ANSI_X963_SHA1)
+    assert_equal(16, ecdh_secret.bytesize)
+    assert_equal(16, ecdh2_secret.bytesize)
+    assert_equal(ecdh_secret, ecdh2_secret)
+  end
+
   def test_static_priv_needs_public
     group = OpenSSL::PKey::EC::Group.new('prime256v1')
     ecdh = OpenSSL::PKey::EC.new(group)
@@ -171,6 +197,7 @@ class OpenSSL::TestPKeyEC < Test::Unit::TestCase
       ecdh.dh_compute_key(ecdh2.public_key, 128, static, nil)
     end
   end
+
 end
 
 end

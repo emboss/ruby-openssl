@@ -1,4 +1,8 @@
 === 0.2.0 / 2011-02-27 [emboss]
+* Started Ruby implementation of several
+  KDFs
+
+ === 0.2.0 / 2011-02-27 [emboss]
 * Fixed ECDH default KDF bug
 
  === 0.2.0 / 2011-02-27 [emboss]
