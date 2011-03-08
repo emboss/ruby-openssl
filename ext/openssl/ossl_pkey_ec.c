@@ -651,18 +651,21 @@ int_ossl_ecdh_compute_secret(VALUE ec_obj, VALUE pubkey ) {
  *  * +size+ is an optional Fixnum representing the desired output length in
  *           bits - e.g. if you'd like to compute a symmetric key for AES 128,
  *           size would be specified as 128. If not provided, the output size
- *           will be equal to the hash function used in the KDF.
+ *           will be equal to the bit size of the output of the SHA-1 hash
+ *           function used in the default KDF, 160.
  * * +static_privkey+ an OpenSSL::PKey::EC instance that serves as the "static
  *                    private key" in the C(2, 2, ECC CDH) scheme (cf. ch.
  *                    6.1.1.2 in NIST SP800-56A)
  * * +static_pubkey+ a public OpenSSL::PKey::EC::Point that serves as the peer's
  *                   "static public key" in the C(2, 2, ECC CDH) scheme
  *
- *  Returns a string containing a shared secret computed from the other party's
- *  public EC key by the default key derivation function (or KDF).
- *  If no "static keys" are provided the secret is derived using the
- *  C(2, 0, ECC CDH) scheme described in NIST SP800-56A, where this EC instance
- *  and +pubkey+ are interpreted to be the ephemeral keys.
+ *  If a +size+ is provided, it returns a string containing a shared secret
+ *  computed from the other party's public EC key by the default key derivation
+ *  function (or KDF). If on the other hand no +size+ and no "static keys" are
+ *  given, the raw shared secret is returned.
+ *  If a +size+ is provided and no "static keys" are provided the secret is
+ *  derived using the C(2, 0, ECC CDH) scheme described in NIST SP800-56A, where
+ *  this EC instance and +pubkey+ are interpreted to be the ephemeral keys.
  *  The default KDF used is the "ANSI X9.63 Key Derivation Function" (cf.
  *  "SEC 1: Elliptic Curve Cryptography.", ch. 3.6.1).
  *  To use a different KDF you may also provide a block that takes two
@@ -692,9 +695,15 @@ static VALUE ossl_ec_key_dh_compute_key(int argc, VALUE *argv, VALUE self)
 	rb_funcall(str, rb_intern("concat"), 1, str2);
     }
 
-    return rb_block_given_p() ?
-           ossl_dh_kdf_cb(str, size) :
-           ossl_dh_kdf_ansi_x963_sha1(str, size);
+    if (rb_block_given_p()) {
+	return ossl_dh_kdf_cb(str, size);
+    }
+    else {
+	if (NIL_P(size) && NIL_P(static_pubkey))
+	    return str;
+	else 
+	    return ossl_dh_kdf_ansi_x963_sha1(str, size);
+    }
 }
 
 /* sign_setup */

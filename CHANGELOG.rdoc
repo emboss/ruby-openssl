@@ -1,4 +1,8 @@
-=== 0.2.0 / 2011-02-28 [emboss]
+=== 0.2.0 / 2011-03-08 [emboss]
+* Added KDF support for PKey::DH
+* Refactored KDF implementation
+
+  === 0.2.0 / 2011-02-28 [emboss]
 * Added more KDFs
 * moved KDF C implementations to
   ossl_pkey.c (may be shared with DH)

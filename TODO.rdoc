@@ -1,5 +1,12 @@
 == OpenSSL::ASN1::Template
 
+=== C parsing/encoding
+* Implement the parse/decode facilities in C
+
+Skip the intermediate format of ASN.1 objects,
+parse and encode directly from template to DER
+and vice versa.
+
 === asn1_sequence_of, asn1_set_of
 
 Currently the allowed sizes are generally (0..inf). It
@@ -21,9 +28,6 @@ Introduce encoders that force a certain encoding that is specific to the string 
 
 === Certificate
 * PKey from SubjectPublicKeyInfo
-
-Should be possible with PKey directly?
-
 * Certificate creation: extensions etc
 
 === SignedData
@@ -35,7 +39,5 @@ Should be possible with PKey directly?
 * Verify using certificate
 
 === Key Agreement
-* validate "zeroize"
-* add kdf block facility to PKey::DH
 * RDoc
 

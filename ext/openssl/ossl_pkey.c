@@ -147,7 +147,7 @@ ossl_dh_kdf_ansi_x963_sha1(VALUE shared_secret, VALUE size) {
     const unsigned char *secret;
     unsigned char *round_input, *out, *outp;
     int counter = 1;
-    VALUE retval;
+    VALUE value;
 
     if (NIL_P(size)) {
 	isize = SHA_DIGEST_LENGTH;
@@ -180,10 +180,10 @@ ossl_dh_kdf_ansi_x963_sha1(VALUE shared_secret, VALUE size) {
     outp = out;
     for (i = 0; i < iterations; i++) {
         memcpy(round_input, secret, secret_len);
-        round_input[secret_len] = (char)((counter >> 24) & 0xFF);
-        round_input[secret_len + 1] = (char)((counter >> 16) & 0xFF);
-        round_input[secret_len + 2] = (char)((counter >> 8) & 0xFF);
-        round_input[secret_len + 3] = (char)(counter & 0xFF);
+        round_input[secret_len] = (unsigned char)((counter >> 24) & 0xFF);
+        round_input[secret_len + 1] = (unsigned char)((counter >> 16) & 0xFF);
+        round_input[secret_len + 2] = (unsigned char)((counter >> 8) & 0xFF);
+        round_input[secret_len + 3] = (unsigned char)(counter & 0xFF);
 
         SHA1(round_input, secret_len + 4, outp);
 
@@ -192,24 +192,14 @@ ossl_dh_kdf_ansi_x963_sha1(VALUE shared_secret, VALUE size) {
     }
 
     OPENSSL_free(round_input);
-    retval = rb_str_new(out, isize);
+    value = rb_str_new(out, isize);
     OPENSSL_free(out);
-    return retval;
+    return value;
 }
 
 VALUE
 ossl_dh_kdf_cb(VALUE shared_secret, VALUE size) {
-    VALUE ary;
-
-    if (NIL_P(size)) {
-	size = INT2NUM(SHA_DIGEST_LENGTH);
-    }
-
-    ary = rb_ary_new2(2);
-    rb_ary_store(ary, 0, shared_secret);
-    rb_ary_store(ary, 1, size);
-
-    return rb_yield(ary);
+    return rb_yield_values(2, shared_secret, size);
 }
 
 EVP_PKEY *

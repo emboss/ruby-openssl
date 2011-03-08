@@ -2,35 +2,33 @@ module OpenSSL::PKey
   module KeyDerivation
     class << self
       def ansi_x963(digest, shared_info=nil)
-        Proc.new do |secret, size|
-          if size < 0 || size % 8 != 0
-            raise ArgumentError.new('Key bit size must be positive and a multiple of 8')
-          end
+        lambda do |secret, size=nil|
+          size ||= digest.digest_length * 8
+          check_bit_size_valid(size)
 
-          bit_size = size / 8
+          bytes = size / 8
           counter = 1
-          iterations = bit_size / digest.digest_length + 1
-          if iterations > (1 << 32) - 1
-            raise ArgumentError.new('Key bit size too large')
-          end
-          retval = String.new
+          iterations = compute_iterations(bytes, digest)
+          value = String.new
 
           iterations.times do
             digest << secret
             digest << [ counter ].pack('N')
             digest << shared_info if shared_info
-            retval << digest.digest
+            value << digest.digest
             digest.reset
             counter += 1
           end
 
           str_erase(secret)
-          retval[0..bit_size-1]
+          value[0..bytes-1]
         end
       end
 
       def ecc_cms_shared_info(key_encryption, digest, ukm=nil)
-        Proc.new do |secret, size|
+        lambda do |secret, size=nil|
+          size ||= digest.digest_length * 8
+
           alg_id = key_encryption.respond_to?(:to_der) ?
                    key_encryption :
                    OpenSSL::ASN1::Sequence.new([OpenSSL::ASN1::ObjectId.new(key_encryption)])
@@ -51,30 +49,26 @@ module OpenSSL::PKey
       end
 
       def nist_800_56a_concatenation(digest, other_info)
-        Proc.new do |secret, size|
-          if size < 0 || size % 8 != 0
-            raise ArgumentError.new('Key bit size must be positive and a multiple of 8')
-          end
+        lambda do |secret, size=nil|
+          size ||= digest.digest_length * 8
+          check_bit_size_valid(size)
 
-          bit_size = size / 8
+          bytes = size / 8
           counter = 1
-          iterations = bit_size / digest.digest_length + 1
-          if iterations > (1 << 32) - 1
-            raise ArgumentError.new('Key bit size too large')
-          end
-          retval = String.new
+          iterations = compute_iterations(bytes, digest)
+          value = String.new
 
           iterations.times do
             digest << [ counter ].pack('N')
             digest << secret
             digest << other_info
-            retval << digest.digest
+            value << digest.digest
             digest.reset
             counter += 1
           end
 
           str_erase(secret)
-          retval[0..bit_size-1]
+          value[0..bytes-1]
         end
       end
 
@@ -82,8 +76,22 @@ module OpenSSL::PKey
 
       def str_erase(str)
         for i in 0..str.size-1 do
-          str[i] = "\x0"
+          str[i] = "\0"
         end
+      end
+
+      def check_bit_size_valid(bits)
+        if bits < 0 || bits % 8 != 0
+          raise ArgumentError.new('Key bit size must be positive and a multiple of 8')
+        end
+      end
+
+      def compute_iterations(bytes, digest)
+        iterations = bytes / digest.digest_length + 1
+        if iterations > (1 << 32) - 1
+          raise ArgumentError.new('Key bit size too large')
+        end
+        iterations
       end
     end
   end

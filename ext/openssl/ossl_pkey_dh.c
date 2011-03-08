@@ -384,24 +384,47 @@ ossl_dh_generate_key(VALUE self)
 
 /*
  *  call-seq:
- *     dh.compute_key(pub_bn) -> aString
+ *     dh.compute_key(pub_bn) -> String
+ *     dh.compute_key(pub_bn, size) -> String
  *
  *  === Parameters
  *  * +pub_bn+ is a OpenSSL::BN.
+ *  * +size+ is an optional Fixnum representing the desired output length in
+ *           bits - e.g. if you'd like to compute a symmetric key for AES 128,
+ *           size would be specified as 128. If not provided, the output size
+ *           will be equal to the bit size of the output of the SHA-1 hash
+ *           function used in the default KDF, 160.
  *
- *  Returns aString containing a shared secret computed from the other parties public value.
+ *  If no +size+ is provided, the raw shared secret computed from the other
+ *  party's public key is returned.
+ *  If a +size+ is given, the return value will be derived from the default KDF
+ *  (key derivation function) used, the "ANSI X9.63 Key Derivation Function"
+ *  (cf. "SEC 1: Elliptic Curve Cryptography.", ch. 3.6.1).
+ *  To use a different KDF you may also provide a block that takes two
+ *  arguments (the initial shared secret, and the desired key length) and
+ *  returns the final value of the computed key.
  *
- *  See DH_compute_key() for further information.
+ * === Example
+ *
+ * symm_key = dh.compute_key(pub, 128) do |shared_secret, size|
+ *   key = OpenSSL::Digest::SHA1.digest(shared_secret)
+ *   key[0..size]
+ * end
+ *
+ * See DH_compute_key() for further information.
  *
  */
 static VALUE
-ossl_dh_compute_key(VALUE self, VALUE pub)
+ossl_dh_compute_key(int argc, VALUE *argv, VALUE self)
 {
+    VALUE pub, size;
     DH *dh;
     EVP_PKEY *pkey;
     BIGNUM *pub_key;
     VALUE str;
     int len;
+
+    rb_scan_args(argc, argv, "11", &pub, &size);
 
     GetPKeyDH(self, pkey);
     dh = pkey->pkey.dh;
@@ -413,7 +436,15 @@ ossl_dh_compute_key(VALUE self, VALUE pub)
     }
     rb_str_set_len(str, len);
 
-    return str;
+    if (rb_block_given_p()) {
+	return ossl_dh_kdf_cb(str, size);
+    }
+    else {
+	if (NIL_P(size))
+	    return str;
+	else
+	    return ossl_dh_kdf_ansi_x963_sha1(str, size);
+    }
 }
 
 OSSL_PKEY_BN(dh, p)
