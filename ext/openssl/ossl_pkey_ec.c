@@ -674,7 +674,7 @@ int_ossl_ecdh_compute_secret(VALUE ec_obj, VALUE pubkey ) {
  *
  * === Example
  *
- * symm_key = ec.compute_key(pub_ec, 128) do |shared_secret, size|
+ * symm_key = ec.dh_compute_key(pub_ec, 128) do |shared_secret, size|
  *   key = OpenSSL::Digest::SHA1.digest(shared_secret)
  *   key[0..size]
  * end

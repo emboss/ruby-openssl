@@ -382,51 +382,16 @@ ossl_dh_generate_key(VALUE self)
     return self;
 }
 
-/*
- *  call-seq:
- *     dh.compute_key(pub_bn) -> String
- *     dh.compute_key(pub_bn, size) -> String
- *
- *  === Parameters
- *  * +pub_bn+ is a OpenSSL::BN.
- *  * +size+ is an optional Fixnum representing the desired output length in
- *           bits - e.g. if you'd like to compute a symmetric key for AES 128,
- *           size would be specified as 128. If not provided, the output size
- *           will be equal to the bit size of the output of the SHA-1 hash
- *           function used in the default KDF, 160.
- *
- *  If no +size+ is provided, the raw shared secret computed from the other
- *  party's public key is returned.
- *  If a +size+ is given, the return value will be derived from the default KDF
- *  (key derivation function) used, the "ANSI X9.63 Key Derivation Function"
- *  (cf. "SEC 1: Elliptic Curve Cryptography.", ch. 3.6.1).
- *  To use a different KDF you may also provide a block that takes two
- *  arguments (the initial shared secret, and the desired key length) and
- *  returns the final value of the computed key.
- *
- * === Example
- *
- * symm_key = dh.compute_key(pub, 128) do |shared_secret, size|
- *   key = OpenSSL::Digest::SHA1.digest(shared_secret)
- *   key[0..size]
- * end
- *
- * See DH_compute_key() for further information.
- *
- */
 static VALUE
-ossl_dh_compute_key(int argc, VALUE *argv, VALUE self)
+int_ossl_dh_compute_secret(VALUE dh_obj, VALUE pub)
 {
-    VALUE pub, size;
     DH *dh;
     EVP_PKEY *pkey;
     BIGNUM *pub_key;
-    VALUE str;
     int len;
+    VALUE str;
 
-    rb_scan_args(argc, argv, "11", &pub, &size);
-
-    GetPKeyDH(self, pkey);
+    GetPKeyDH(dh_obj, pkey);
     dh = pkey->pkey.dh;
     pub_key = GetBNPtr(pub);
     len = DH_size(dh);
@@ -435,12 +400,69 @@ ossl_dh_compute_key(int argc, VALUE *argv, VALUE self)
 	ossl_raise(eDHError, NULL);
     }
     rb_str_set_len(str, len);
+    return str;
+}
+
+/*
+ *  call-seq:
+ *     dh.compute_key(pub_bn) -> String
+ *     dh.compute_key(pub_bn, size) -> String
+ *     dh.compute_key(pub_bn, size, static_priv_dh, static_pub_bn)  => String
+ *  === Parameters
+ *  * +pub_bn+ is the OpenSSL::BN instance of the key agreement peer.
+ *  * +size+ is an optional Fixnum representing the desired output length in
+ *           bits - e.g. if you'd like to compute a symmetric key for AES 128,
+ *           size would be specified as 128. If not provided, the output size
+ *           will be equal to the bit size of the output of the SHA-1 hash
+ *           function used in the default KDF, 160.
+ * * +static_priv_dh+ a DH instance that serves as the "static
+ *                    private key" in the C(2, 2, FFC DH) scheme (cf. ch.
+ *                    6.1.1.1 in NIST SP800-56A)
+ * * +static_pubkey+ a public OpenSSL::BN that serves as the peer's
+ *                   "static public key" in the C(2, 2, FFC DH) scheme
+ *
+ *  If a +size+ is provided, it returns a string containing a shared secret
+ *  computed from the other party's public key by the default key derivation
+ *  function (or KDF). If on the other hand no +size+ and no "static keys" are
+ *  given, the raw shared secret is returned.
+ *  If a +size+ is provided and no "static keys" are provided the secret is
+ *  derived using the C(2, 0, FFC DH) scheme described in NIST SP800-56A, where
+ *  this DH instance and +pub_bn+ are interpreted to be the ephemeral keys.
+ *  The default KDF used is the "ANSI X9.63 Key Derivation Function" (cf.
+ *  "SEC 1: Elliptic Curve Cryptography.", ch. 3.6.1).
+ *  To use a different KDF you may also provide a block that takes two
+ *  arguments (the initial shared secret, and the desired key length) and
+ *  returns the final value of the computed key.
+ *
+ * === Example
+ *
+ * symm_key = dh.compute_key(pub_bn, 128) do |shared_secret, size|
+ *   key = OpenSSL::Digest::SHA1.digest(shared_secret)
+ *   key[0..size]
+ * end
+ */
+static VALUE
+ossl_dh_compute_key(int argc, VALUE *argv, VALUE self)
+{
+    VALUE pub, size, static_pubkey, static_privkey, str;
+
+    rb_scan_args(argc, argv, "13", &pub, &size, &static_privkey, &static_pubkey);
+    
+    str = int_ossl_dh_compute_secret(self, pub);
+    if (!NIL_P(static_privkey)) {
+	if (NIL_P(static_pubkey)) {
+	    ossl_raise(rb_eArgError, "Static public key is missing");
+	    return Qnil;
+	}
+	VALUE str2 = int_ossl_dh_compute_secret(static_privkey, static_pubkey);
+	rb_funcall(str, rb_intern("concat"), 1, str2);
+    }
 
     if (rb_block_given_p()) {
 	return ossl_dh_kdf_cb(str, size);
     }
     else {
-	if (NIL_P(size))
+	if (NIL_P(size) && NIL_P(static_pubkey))
 	    return str;
 	else
 	    return ossl_dh_kdf_ansi_x963_sha1(str, size);
@@ -540,7 +562,7 @@ Init_ossl_dh()
     rb_define_method(cDH, "public_key", ossl_dh_to_public_key, 0);
     rb_define_method(cDH, "params_ok?", ossl_dh_check_params, 0);
     rb_define_method(cDH, "generate_key!", ossl_dh_generate_key, 0);
-    rb_define_method(cDH, "compute_key", ossl_dh_compute_key, 1);
+    rb_define_method(cDH, "compute_key", ossl_dh_compute_key, -1);
     DEF_OSSL_PKEY_BN(cDH, dh, p);
     DEF_OSSL_PKEY_BN(cDH, dh, g);
     DEF_OSSL_PKEY_BN(cDH, dh, pub_key);

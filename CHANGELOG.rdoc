@@ -1,3 +1,7 @@
+=== 0.2.0 / 2011-03-18 [emboss]
+* Added support for static/ephemeral 
+  scheme for PKey:DH
+
 === 0.2.0 / 2011-03-08 [emboss]
 * Added KDF support for PKey::DH
 * Refactored KDF implementation
