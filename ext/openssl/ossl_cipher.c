@@ -11,23 +11,23 @@
 #include "ossl.h"
 
 #define WrapCipher(obj, klass, ctx) \
-    obj = Data_Wrap_Struct(klass, 0, ossl_cipher_free, ctx)
+    (obj) = Data_Wrap_Struct((klass), 0, ossl_cipher_free, (ctx))
 #define MakeCipher(obj, klass, ctx) \
-    obj = Data_Make_Struct(klass, EVP_CIPHER_CTX, 0, ossl_cipher_free, ctx)
+    (obj) = Data_Make_Struct((klass), EVP_CIPHER_CTX, 0, ossl_cipher_free, (ctx))
 #define AllocCipher(obj, ctx) \
     memset(DATA_PTR(obj) = (ctx) = ALLOC(EVP_CIPHER_CTX), 0, sizeof(EVP_CIPHER_CTX))
 #define GetCipherInit(obj, ctx) do { \
-    Data_Get_Struct(obj, EVP_CIPHER_CTX, ctx); \
+    Data_Get_Struct((obj), EVP_CIPHER_CTX, (ctx)); \
 } while (0)
 #define GetCipher(obj, ctx) do { \
-    GetCipherInit(obj, ctx); \
-    if (!ctx) { \
+    GetCipherInit((obj), (ctx)); \
+    if (!(ctx)) { \
 	ossl_raise(rb_eRuntimeError, "Cipher not inititalized!"); \
     } \
 } while (0)
 #define SafeGetCipher(obj, ctx) do { \
-    OSSL_Check_Kind(obj, cCipher); \
-    GetCipher(obj, ctx); \
+    OSSL_Check_Kind((obj), cCipher); \
+    GetCipher((obj), (ctx)); \
 } while (0)
 
 /*
@@ -202,7 +202,7 @@ ossl_cipher_init(int argc, VALUE *argv, VALUE self, int mode)
 	 * keeping this behaviour for backward compatibility.
 	 */
 	const char *cname  = rb_class2name(rb_obj_class(self));
-	rb_warn("argumtents for %s#encrypt and %s#decrypt were deprecated; "
+	rb_warn("arguments for %s#encrypt and %s#decrypt were deprecated; "
                 "use %s#pkcs5_keyivgen to derive key and IV",
                 cname, cname, cname);
 	StringValue(pass);
@@ -217,7 +217,7 @@ ossl_cipher_init(int argc, VALUE *argv, VALUE self, int mode)
 	    else memcpy(iv, RSTRING_PTR(init_v), sizeof(iv));
 	}
 	EVP_BytesToKey(EVP_CIPHER_CTX_cipher(ctx), EVP_md5(), iv,
-		       (unsigned char *)RSTRING_PTR(pass), RSTRING_LEN(pass), 1, key, NULL);
+		       (unsigned char *)RSTRING_PTR(pass), RSTRING_LENINT(pass), 1, key, NULL);
 	p_key = key;
 	p_iv = iv;
     }
@@ -300,7 +300,7 @@ ossl_cipher_pkcs5_keyivgen(int argc, VALUE *argv, VALUE self)
     digest = NIL_P(vdigest) ? EVP_md5() : GetDigestPtr(vdigest);
     GetCipher(self, ctx);
     EVP_BytesToKey(EVP_CIPHER_CTX_cipher(ctx), digest, salt,
-		   (unsigned char *)RSTRING_PTR(vpass), RSTRING_LEN(vpass), iter, key, iv);
+		   (unsigned char *)RSTRING_PTR(vpass), RSTRING_LENINT(vpass), iter, key, iv);
     if (EVP_CipherInit_ex(ctx, NULL, NULL, key, iv, -1) != 1)
 	ossl_raise(eCipherError, NULL);
     OPENSSL_cleanse(key, sizeof key);
@@ -330,7 +330,7 @@ ossl_cipher_update(int argc, VALUE *argv, VALUE self)
 
     StringValue(data);
     in = (unsigned char *)RSTRING_PTR(data);
-    if ((in_len = RSTRING_LEN(data)) == 0)
+    if ((in_len = RSTRING_LENINT(data)) == 0)
         rb_raise(rb_eArgError, "data must not be empty");
     GetCipher(self, ctx);
     out_len = in_len+EVP_CIPHER_CTX_block_size(ctx);

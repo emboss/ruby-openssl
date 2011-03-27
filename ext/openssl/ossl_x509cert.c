@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509cert.c 27440 2010-04-22 08:21:01Z nobu $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -11,20 +11,20 @@
 #include "ossl.h"
 
 #define WrapX509(klass, obj, x509) do { \
-    if (!x509) { \
+    if (!(x509)) { \
 	ossl_raise(rb_eRuntimeError, "CERT wasn't initialized!"); \
     } \
-    obj = Data_Wrap_Struct(klass, 0, X509_free, x509); \
+    (obj) = Data_Wrap_Struct((klass), 0, X509_free, (x509)); \
 } while (0)
 #define GetX509(obj, x509) do { \
-    Data_Get_Struct(obj, X509, x509); \
-    if (!x509) { \
+    Data_Get_Struct((obj), X509, (x509)); \
+    if (!(x509)) { \
 	ossl_raise(rb_eRuntimeError, "CERT wasn't initialized!"); \
     } \
 } while (0)
 #define SafeGetX509(obj, x509) do { \
-    OSSL_Check_Kind(obj, cX509Cert); \
-    GetX509(obj, x509); \
+    OSSL_Check_Kind((obj), cX509Cert); \
+    GetX509((obj), (x509)); \
 } while (0)
 
 /*

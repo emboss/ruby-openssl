@@ -11,12 +11,8 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: digest.rb 26743 2010-02-23 17:33:39Z knu $
+  $Id$
 =end
-
-##
-# Should we care what if somebody require this file directly?
-#require 'openssl'
 
 module OpenSSL
   class Digest

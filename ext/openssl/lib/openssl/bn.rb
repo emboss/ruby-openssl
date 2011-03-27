@@ -11,12 +11,8 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: bn.rb 29407 2010-10-04 00:33:22Z naruse $
+  $Id$
 =end
-
-##
-# Should we care what if somebody require this file directly?
-#require 'openssl'
 
 module OpenSSL
   class BN

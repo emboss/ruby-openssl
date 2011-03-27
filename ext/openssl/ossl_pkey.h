@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_pkey.h 25189 2009-10-02 12:04:37Z akr $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001 Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -21,21 +21,21 @@ extern ID id_private_q;
 #define OSSL_PKEY_IS_PRIVATE(obj)  (rb_iv_get((obj), "private") == Qtrue)
 
 #define WrapPKey(klass, obj, pkey) do { \
-    if (!pkey) { \
+    if (!(pkey)) { \
 	rb_raise(rb_eRuntimeError, "PKEY wasn't initialized!"); \
     } \
-    obj = Data_Wrap_Struct(klass, 0, EVP_PKEY_free, pkey); \
+    (obj) = Data_Wrap_Struct((klass), 0, EVP_PKEY_free, (pkey)); \
     OSSL_PKEY_SET_PUBLIC(obj); \
 } while (0)
 #define GetPKey(obj, pkey) do {\
-    Data_Get_Struct(obj, EVP_PKEY, pkey);\
-    if (!pkey) { \
+    Data_Get_Struct((obj), EVP_PKEY, (pkey));\
+    if (!(pkey)) { \
 	rb_raise(rb_eRuntimeError, "PKEY wasn't initialized!");\
     } \
 } while (0)
 #define SafeGetPKey(obj, pkey) do { \
-    OSSL_Check_Kind(obj, cPKey); \
-    GetPKey(obj, pkey); \
+    OSSL_Check_Kind((obj), cPKey); \
+    GetPKey((obj), (pkey)); \
 } while (0)
 
 void ossl_generate_cb(int, int, void *);

@@ -1,4 +1,7 @@
-=== 0.2.0 / 2011-03-18 [emboss]
+=== 0.2.0 / 2011-03-27 [emboss]
+* Sync with original.
+
+ === 0.2.0 / 2011-03-18 [emboss]
 * Added support for static/ephemeral 
   scheme for PKey:DH
 

@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_ssl.c 30488 2011-01-07 16:32:10Z tenderlove $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2000-2002  GOTOU Yuuzou <gotoyuzo@notwork.org>
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
@@ -16,12 +16,12 @@
 #  include <unistd.h> /* for read(), and write() */
 #endif
 
-#define numberof(ary) (int)(sizeof(ary)/sizeof(ary[0]))
+#define numberof(ary) (int)(sizeof(ary)/sizeof((ary)[0]))
 
 #ifdef _WIN32
 #  define TO_SOCKET(s) _get_osfhandle(s)
 #else
-#  define TO_SOCKET(s) s
+#  define TO_SOCKET(s) (s)
 #endif
 
 VALUE mSSL;
@@ -232,13 +232,12 @@ ossl_call_client_cert_cb(VALUE obj)
 static int
 ossl_client_cert_cb(SSL *ssl, X509 **x509, EVP_PKEY **pkey)
 {
-    VALUE obj;
-    int status, success;
+    VALUE obj, success;
 
     obj = (VALUE)SSL_get_ex_data(ssl, ossl_ssl_ex_ptr_idx);
     success = rb_protect((VALUE(*)_((VALUE)))ossl_call_client_cert_cb,
-                         obj, &status);
-    if (status || !success) return 0;
+                         obj, NULL);
+    if (!RTEST(success)) return 0;
     *x509 = DupX509CertPtr(ossl_ssl_get_x509(obj));
     *pkey = DupPKeyPtr(ossl_ssl_get_key(obj));
 
@@ -267,15 +266,14 @@ ossl_call_tmp_dh_callback(VALUE *args)
 static DH*
 ossl_tmp_dh_callback(SSL *ssl, int is_export, int keylength)
 {
-    VALUE args[3];
-    int status, success;
+    VALUE args[3], success;
 
     args[0] = (VALUE)SSL_get_ex_data(ssl, ossl_ssl_ex_ptr_idx);
     args[1] = INT2FIX(is_export);
     args[2] = INT2FIX(keylength);
     success = rb_protect((VALUE(*)_((VALUE)))ossl_call_tmp_dh_callback,
-                         (VALUE)args, &status);
-    if (status || !success) return NULL;
+                         (VALUE)args, NULL);
+    if (!RTEST(success)) return NULL;
 
     return GetPKeyPtr(ossl_ssl_get_tmp_dh(args[0]))->pkey.dh;
 }
@@ -630,7 +628,7 @@ ossl_sslctx_setup(VALUE self)
     if(!NIL_P(val)) SSL_CTX_set_timeout(ctx, NUM2LONG(val));
 
     val = ossl_sslctx_get_verify_dep(self);
-    if(!NIL_P(val)) SSL_CTX_set_verify_depth(ctx, NUM2LONG(val));
+    if(!NIL_P(val)) SSL_CTX_set_verify_depth(ctx, NUM2INT(val));
 
     val = ossl_sslctx_get_options(self);
     if(!NIL_P(val)) SSL_CTX_set_options(ctx, NUM2LONG(val));
@@ -640,7 +638,7 @@ ossl_sslctx_setup(VALUE self)
     if (!NIL_P(val)){
 	StringValue(val);
 	if (!SSL_CTX_set_session_id_context(ctx, (unsigned char *)RSTRING_PTR(val),
-					    RSTRING_LEN(val))){
+					    RSTRING_LENINT(val))){
 	    ossl_raise(eSSLError, "SSL_CTX_set_session_id_context:");
 	}
     }
@@ -1064,9 +1062,9 @@ ossl_ssl_setup(VALUE self)
 }
 
 #ifdef _WIN32
-#define ssl_get_error(ssl, ret) (errno = rb_w32_map_errno(WSAGetLastError()), SSL_get_error(ssl, ret))
+#define ssl_get_error(ssl, ret) (errno = rb_w32_map_errno(WSAGetLastError()), SSL_get_error((ssl), (ret)))
 #else
-#define ssl_get_error(ssl, ret) SSL_get_error(ssl, ret)
+#define ssl_get_error(ssl, ret) SSL_get_error((ssl), (ret))
 #endif
 
 static void
@@ -1233,7 +1231,7 @@ ossl_ssl_read_internal(int argc, VALUE *argv, VALUE self, int nonblock)
 	if(!nonblock && SSL_pending(ssl) <= 0)
 	    rb_thread_wait_fd(FPTR_TO_FD(fptr));
 	for (;;){
-	    nread = SSL_read(ssl, RSTRING_PTR(str), RSTRING_LEN(str));
+	    nread = SSL_read(ssl, RSTRING_PTR(str), RSTRING_LENINT(str));
 	    switch(ssl_get_error(ssl, nread)){
 	    case SSL_ERROR_NONE:
 		goto end;
@@ -1313,7 +1311,7 @@ ossl_ssl_write_internal(VALUE self, VALUE str, int nonblock)
 
     if (ssl) {
 	for (;;){
-	    nwrite = SSL_write(ssl, RSTRING_PTR(str), RSTRING_LEN(str));
+	    nwrite = SSL_write(ssl, RSTRING_PTR(str), RSTRING_LENINT(str));
 	    switch(ssl_get_error(ssl, nwrite)){
 	    case SSL_ERROR_NONE:
 		goto end;

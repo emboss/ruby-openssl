@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509name.c 30173 2010-12-10 21:26:23Z drbrain $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001 Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -11,20 +11,20 @@
 #include "ossl.h"
 
 #define WrapX509Name(klass, obj, name) do { \
-    if (!name) { \
+    if (!(name)) { \
 	ossl_raise(rb_eRuntimeError, "Name wasn't initialized."); \
     } \
-    obj = Data_Wrap_Struct(klass, 0, X509_NAME_free, name); \
+    (obj) = Data_Wrap_Struct((klass), 0, X509_NAME_free, (name)); \
 } while (0)
 #define GetX509Name(obj, name) do { \
-    Data_Get_Struct(obj, X509_NAME, name); \
-    if (!name) { \
+    Data_Get_Struct((obj), X509_NAME, (name)); \
+    if (!(name)) { \
 	ossl_raise(rb_eRuntimeError, "Name wasn't initialized."); \
     } \
 } while (0)
 #define SafeGetX509Name(obj, name) do { \
-    OSSL_Check_Kind(obj, cX509Name); \
-    GetX509Name(obj, name); \
+    OSSL_Check_Kind((obj), cX509Name); \
+    GetX509Name((obj), (name)); \
 } while (0)
 
 #define OBJECT_TYPE_TEMPLATE \
@@ -87,9 +87,9 @@ ossl_x509name_alloc(VALUE klass)
     return obj;
 }
 
-static int id_aref;
+static ID id_aref;
 static VALUE ossl_x509name_add_entry(int, VALUE*, VALUE);
-#define rb_aref(obj, key) rb_funcall(obj, id_aref, 1, key)
+#define rb_aref(obj, key) rb_funcall((obj), id_aref, 1, (key))
 
 static VALUE
 ossl_x509name_init_i(VALUE i, VALUE args)
@@ -167,7 +167,7 @@ VALUE ossl_x509name_add_entry(int argc, VALUE *argv, VALUE self)
     if(NIL_P(type)) type = rb_aref(OBJECT_TYPE_TEMPLATE, oid);
     GetX509Name(self, name);
     if (!X509_NAME_add_entry_by_txt(name, RSTRING_PTR(oid), NUM2INT(type),
-		(const unsigned char *)RSTRING_PTR(value), RSTRING_LEN(value), -1, 0)) {
+		(const unsigned char *)RSTRING_PTR(value), RSTRING_LENINT(value), -1, 0)) {
 	ossl_raise(eX509NameError, NULL);
     }
 

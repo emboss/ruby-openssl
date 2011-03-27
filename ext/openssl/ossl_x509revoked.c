@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509revoked.c 27440 2010-04-22 08:21:01Z nobu $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -11,20 +11,20 @@
 #include "ossl.h"
 
 #define WrapX509Rev(klass, obj, rev) do { \
-    if (!rev) { \
+    if (!(rev)) { \
 	ossl_raise(rb_eRuntimeError, "REV wasn't initialized!"); \
     } \
-    obj = Data_Wrap_Struct(klass, 0, X509_REVOKED_free, rev); \
+    (obj) = Data_Wrap_Struct((klass), 0, X509_REVOKED_free, (rev)); \
 } while (0)
 #define GetX509Rev(obj, rev) do { \
-    Data_Get_Struct(obj, X509_REVOKED, rev); \
-    if (!rev) { \
+    Data_Get_Struct((obj), X509_REVOKED, (rev)); \
+    if (!(rev)) { \
 	ossl_raise(rb_eRuntimeError, "REV wasn't initialized!"); \
     } \
 } while (0)
 #define SafeGetX509Rev(obj, rev) do { \
-    OSSL_Check_Kind(obj, cX509Rev); \
-    GetX509Rev(obj, rev); \
+    OSSL_Check_Kind((obj), cX509Rev); \
+    GetX509Rev((obj), (rev)); \
 } while (0)
 
 /*

@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_digest.c 30090 2010-12-06 00:54:44Z drbrain $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -8,20 +8,17 @@
  * This program is licenced under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
-#include <openssl/objects.h>
-#include <openssl/asn1.h>
-
 #include "ossl.h"
 
 #define GetDigest(obj, ctx) do { \
-    Data_Get_Struct(obj, EVP_MD_CTX, ctx); \
-    if (!ctx) { \
+    Data_Get_Struct((obj), EVP_MD_CTX, (ctx)); \
+    if (!(ctx)) { \
 	ossl_raise(rb_eRuntimeError, "Digest CTX wasn't initialized!"); \
     } \
 } while (0)
 #define SafeGetDigest(obj, ctx) do { \
-    OSSL_Check_Kind(obj, cDigest); \
-    GetDigest(obj, ctx); \
+    OSSL_Check_Kind((obj), cDigest); \
+    GetDigest((obj), (ctx)); \
 } while (0)
 
 /*

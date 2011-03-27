@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509attr.c 27437 2010-04-22 08:04:13Z nobu $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001 Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -11,20 +11,20 @@
 #include "ossl.h"
 
 #define WrapX509Attr(klass, obj, attr) do { \
-    if (!attr) { \
+    if (!(attr)) { \
 	ossl_raise(rb_eRuntimeError, "ATTR wasn't initialized!"); \
     } \
-    obj = Data_Wrap_Struct(klass, 0, X509_ATTRIBUTE_free, attr); \
+    (obj) = Data_Wrap_Struct((klass), 0, X509_ATTRIBUTE_free, (attr)); \
 } while (0)
 #define GetX509Attr(obj, attr) do { \
-    Data_Get_Struct(obj, X509_ATTRIBUTE, attr); \
-    if (!attr) { \
+    Data_Get_Struct((obj), X509_ATTRIBUTE, (attr)); \
+    if (!(attr)) { \
 	ossl_raise(rb_eRuntimeError, "ATTR wasn't initialized!"); \
     } \
 } while (0)
 #define SafeGetX509Attr(obj, attr) do { \
-    OSSL_Check_Kind(obj, cX509Attr); \
-    GetX509Attr(obj, attr); \
+    OSSL_Check_Kind((obj), cX509Attr); \
+    GetX509Attr((obj), (attr)); \
 } while (0)
 
 /*

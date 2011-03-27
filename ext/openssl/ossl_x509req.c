@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509req.c 27440 2010-04-22 08:21:01Z nobu $
+ * $Id$
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -11,20 +11,20 @@
 #include "ossl.h"
 
 #define WrapX509Req(klass, obj, req) do { \
-    if (!req) { \
+    if (!(req)) { \
 	ossl_raise(rb_eRuntimeError, "Req wasn't initialized!"); \
     } \
-    obj = Data_Wrap_Struct(klass, 0, X509_REQ_free, req); \
+    (obj) = Data_Wrap_Struct((klass), 0, X509_REQ_free, (req)); \
 } while (0)
 #define GetX509Req(obj, req) do { \
-    Data_Get_Struct(obj, X509_REQ, req); \
-    if (!req) { \
+    Data_Get_Struct((obj), X509_REQ, (req)); \
+    if (!(req)) { \
 	ossl_raise(rb_eRuntimeError, "Req wasn't initialized!"); \
     } \
 } while (0)
 #define SafeGetX509Req(obj, req) do { \
-    OSSL_Check_Kind(obj, cX509Req); \
-    GetX509Req(obj, req); \
+    OSSL_Check_Kind((obj), cX509Req); \
+    GetX509Req((obj), (req)); \
 } while (0)
 
 /*
