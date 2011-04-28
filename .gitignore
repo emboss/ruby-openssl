@@ -4,6 +4,8 @@ pkg
 doc
 tmp
 *.o
+*.swp
+tags
 ext/openssl/extconf.h
 ext/openssl/Makefile
 ext/openssl/openssl.*

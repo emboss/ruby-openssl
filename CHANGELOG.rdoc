@@ -1,3 +1,6 @@
+=== 0.2.0 / 2011-04-28 [emboss]
+* Started Template implementation in C
+
 === 0.2.0 / 2011-03-18 [emboss]
 * Added support for static/ephemeral 
   scheme for PKey:DH
