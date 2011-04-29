@@ -9,6 +9,7 @@
  * (See the file 'LICENCE'.)
  */
 #include "ossl.h"
+#include "ossl_asn1-internal.h"
 
 #if defined(HAVE_SYS_TIME_H)
 #  include <sys/time.h>
@@ -198,7 +199,7 @@ static ID sUNIVERSAL, sAPPLICATION, sCONTEXT_SPECIFIC, sPRIVATE;
 /*
  * Ruby to ASN1 converters
  */
-static ASN1_BOOLEAN
+ASN1_BOOLEAN
 obj_to_asn1bool(VALUE obj)
 {
 #if OPENSSL_VERSION_NUMBER < 0x00907000L
@@ -208,13 +209,13 @@ obj_to_asn1bool(VALUE obj)
 #endif
 }
 
-static ASN1_INTEGER*
+ASN1_INTEGER*
 obj_to_asn1int(VALUE obj)
 {
     return num_to_asn1integer(obj, NULL);
 }
 
-static ASN1_BIT_STRING*
+ASN1_BIT_STRING*
 obj_to_asn1bstr(VALUE obj, long unused_bits)
 {
     ASN1_BIT_STRING *bstr;
@@ -230,7 +231,7 @@ obj_to_asn1bstr(VALUE obj, long unused_bits)
     return bstr;
 }
 
-static ASN1_STRING*
+ASN1_STRING*
 obj_to_asn1str(VALUE obj)
 {
     ASN1_STRING *str;
@@ -243,7 +244,7 @@ obj_to_asn1str(VALUE obj)
     return str;
 }
 
-static ASN1_NULL*
+ASN1_NULL*
 obj_to_asn1null(VALUE obj)
 {
     ASN1_NULL *null;
@@ -256,7 +257,7 @@ obj_to_asn1null(VALUE obj)
     return null;
 }
 
-static ASN1_OBJECT*
+ASN1_OBJECT*
 obj_to_asn1obj(VALUE obj)
 {
     ASN1_OBJECT *a1obj;
@@ -269,7 +270,7 @@ obj_to_asn1obj(VALUE obj)
     return a1obj;
 }
 
-static ASN1_UTCTIME*
+ASN1_UTCTIME*
 obj_to_asn1utime(VALUE time)
 {
     time_t sec;
@@ -282,7 +283,7 @@ obj_to_asn1utime(VALUE time)
     return t;
 }
 
-static ASN1_GENERALIZEDTIME*
+ASN1_GENERALIZEDTIME*
 obj_to_asn1gtime(VALUE time)
 {
     time_t sec;
@@ -295,7 +296,7 @@ obj_to_asn1gtime(VALUE time)
     return t;
 }
 
-static ASN1_STRING*
+ASN1_STRING*
 obj_to_asn1derstr(VALUE obj)
 {
     ASN1_STRING *a1str;
@@ -312,7 +313,7 @@ obj_to_asn1derstr(VALUE obj)
 /*
  * DER to Ruby converters
  */
-static VALUE
+VALUE
 decode_bool(unsigned char* der, int length)
 {
     int val;
@@ -325,7 +326,7 @@ decode_bool(unsigned char* der, int length)
     return val ? Qtrue : Qfalse;
 }
 
-static VALUE
+VALUE
 decode_int(unsigned char* der, int length)
 {
     ASN1_INTEGER *ai;
@@ -344,7 +345,7 @@ decode_int(unsigned char* der, int length)
     return ret;
 }
 
-static VALUE
+VALUE
 decode_bstr(unsigned char* der, int length, long *unused_bits)
 {
     ASN1_BIT_STRING *bstr;
@@ -365,7 +366,7 @@ decode_bstr(unsigned char* der, int length, long *unused_bits)
     return ret;
 }
 
-static VALUE
+VALUE
 decode_enum(unsigned char* der, int length)
 {
     ASN1_ENUMERATED *ai;
@@ -384,7 +385,7 @@ decode_enum(unsigned char* der, int length)
     return ret;
 }
 
-static VALUE
+VALUE
 decode_null(unsigned char* der, int length)
 {
     ASN1_NULL *null;
@@ -398,7 +399,7 @@ decode_null(unsigned char* der, int length)
     return Qnil;
 }
 
-static VALUE
+VALUE
 decode_obj(unsigned char* der, int length)
 {
     ASN1_OBJECT *obj;
@@ -427,7 +428,7 @@ decode_obj(unsigned char* der, int length)
     return ret;
 }
 
-static VALUE
+VALUE
 decode_time(unsigned char* der, int length)
 {
     ASN1_TIME *time;

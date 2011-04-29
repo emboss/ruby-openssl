@@ -21,7 +21,19 @@ should also be possible to restrict this to e.g. (4..6) etc.
 === Matching (Ruby Template)
 
 * Perform unpacking tagged values as a first step.
-This should simplify matching.
+This could simplify matching.
+
+=== ConstructiveParser
+* handle_missing seems redundant. Just try to parse
+each of the inner definitions instead. This would also
+imply that the max_size check in check_size_cons could
+be abandoned.
+
+=== unpack_explicit
+* match unpacked value again
+
+=== asn1data_to_der (ossl_asn1.c)
+tmp_cons seems redundant, could probably be removed
 
 === Tests 
 

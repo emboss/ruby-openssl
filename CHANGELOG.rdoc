@@ -1,4 +1,8 @@
 === 0.2.0 / 2011-04-28 [emboss]
+* Implemented constructive and primitive 
+  parser for C Template imlementation.
+
+=== 0.2.0 / 2011-04-28 [emboss]
 * Started Template implementation in C
 
 === 0.2.0 / 2011-03-18 [emboss]
