@@ -29,6 +29,10 @@ each of the inner definitions instead. This would also
 imply that the max_size check in check_size_cons could
 be abandoned.
 
+=== ConstructiveOfParser
+* Set infinite length on the parsed object and respect
+it when parsing
+
 === unpack_explicit
 * match unpacked value again
 

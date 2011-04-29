@@ -18,7 +18,6 @@ static ID sOPTIONS, sDEFAULT, sNAME, sTYPE,
 	  sOPTIONAL, sTAG, sTAGGING, sINNER_DEF,
 	  sMIN_SIZE, sCODEC; 
 	  
-
 static ID sPRIMITIVE, sCONSTRUCTIVE, sTEMPLATE,
 	  sSEQUENCE_OF, sSET_OF, sCHOICE;
 
@@ -44,6 +43,8 @@ static ID sIMPLICIT, sEXPLICIT;
 #define ossl_template_hash_get_codec(d)	 	rb_hash_aref((d), ID2SYM(sCODEC))
 
 #define match(t, tc, et, etc, n, o)		match0((t), (tc), (et), (etc), (n), (o), 0) 
+#define parse_seq_of(o, d, pp, l)		parse_constructive_of((o), (d), (pp), (l))
+#define parse_set_of(o, d, pp, l)		parse_constructive_of((o), (d), (pp), (l))
 #define is_optional(opts)			((opts) && \
          					 (ossl_template_hash_get_optional((opts)) == Qtrue || \
 						 (ossl_template_hash_get_default((opts)) != Qnil)))
@@ -64,11 +65,10 @@ static int int_ossl_template_parse(VALUE obj, VALUE def, unsigned char **pp, lon
 static int parse_eoc(unsigned char **pp, long *max_length);
 static int parse_primitive(VALUE obj, VALUE def, unsigned char **pp, long max_length);
 static int parse_primitive_inf(VALUE obj, VALUE def, unsigned char **pp, long max_length, int tag);
-/* static int parse_template(VALUE obj, VALUE def, unsigned char **pp, long length, long *offset); */
-/* static int parse_constructive(VALUE obj, VALUE def, unsigned char **pp, long length, long *offset); */
-/* static int parse_seq_of(VALUE obj, VALUE def, unsigned char **pp, long max_length); */
-/* static int parse_set_of(VALUE obj, VALUE def, unsigned char **pp, long max_length); */
-/* static int parse_choice(VALUE obj, VALUE def, unsigned char **pp, long max_length); */
+static int parse_template(VALUE obj, VALUE def, unsigned char **pp, long max_length);
+static int parse_constructive(VALUE obj, VALUE def, unsigned char **pp, long max_length);
+static int parse_constructive_of(VALUE obj, VALUE def, unsigned char **pp, long max_length);
+static int parse_choice(VALUE obj, VALUE def, unsigned char **pp, long max_length);
 static int parse_tagged(unsigned char **pp, long *max_length, VALUE def, VALUE tagging, int *expect_eoc);
 static int parse_tagged_explicit(unsigned char **pp, long *max_length, VALUE def, int *expect_eoc);
 static int parse_tagged_implicit(unsigned char **pp, long *max_length, VALUE def);
@@ -331,11 +331,15 @@ parse_primitive(VALUE obj, VALUE def, unsigned char **pp, long max_length)
     default:
 	p = (const char *)start;
 	value = rb_str_new(p, len);
+	if (tag == V_ASN1_UTF8STRING) {
+	    value = rb_funcall(value, rb_intern("force_encoding"), 1, rb_str_new2("UTF-8"));
+	} 
 	break;
     }
 
     *pp += hlen + len;
-    rb_ivar_set(obj, SYM2ID(name), value);
+    if (tag != V_ASN1_NULL)
+	rb_ivar_set(obj, SYM2ID(name), value);
     return 1;
 
 rewind:
@@ -424,6 +428,97 @@ rewind:
 }
 
 static int
+parse_template(VALUE obj, VALUE def, unsigned char **pp, long max_length)
+{
+    const char *c_name;
+    VALUE instance, type, type_def, options, name;
+
+    type = ossl_template_hash_get_type(def);
+    options = ossl_template_get_options(def);
+    name = ossl_template_hash_get_name(def);
+    instance = rb_obj_alloc(type);
+    int_ossl_template_initialize(instance, Qnil, 1);
+    type_def = ossl_template_get_definition(CLASS_OF(type));
+    if (!int_ossl_template_parse(instance, type_def, pp, max_length)) {
+	if (!is_optional(options)) {
+	    get_c_name(name, &c_name);
+	    ossl_raise(eTemplateError, 
+	       	     "Mandatory template value %s could not be parsed. ",
+		     c_name);
+	    return 0;
+	}
+	return 0;
+    }
+
+    rb_ivar_set(obj, SYM2ID(name), instance);
+    return 1;
+}
+
+static int
+parse_constructive_of(VALUE obj, VALUE def, unsigned char **pp, long max_length)
+{
+    unsigned char *start;
+    long len;
+    int tag, tc, j, hlen; 
+    const char *c_name;
+
+    VALUE type, name, options, val_ary;
+    
+    type = ossl_template_hash_get_type(def);
+    name = ossl_template_hash_get_name(def);
+    options = ossl_template_hash_get_options(def);
+
+    start = *pp;
+    parse_header(pp, max_length, &len, &j, &tag, &tc, &hlen);
+    printf("ConstructiveOf: Tag %d Len %ld j %d\n", tag, len, j);
+    if (!(j & V_ASN1_CONSTRUCTED)) {
+	get_c_name(name, &c_name);
+	ossl_raise(eTemplateError, 
+		   "Constructed bit not set for ConstructiveOf value %s",
+		   c_name);
+	return 0;
+    }
+    
+    if (!match(tag, tc, type, V_ASN1_UNIVERSAL, name, options))
+	goto rewind;
+
+    *pp += hlen;
+    max_length -= hlen;
+
+    if(rb_mod_include_p(type, mTemplate)) {
+	val_ary = Qnil; /* TODO: parse templates */
+    }
+    else {
+	val_ary = Qnil;/* TODO: parse primitives */
+    }
+
+    if (is_infinite_tag(j)) {
+       	if(!parse_eoc(pp, &max_length)) {
+	    get_c_name(name, &c_name);
+	    ossl_raise(eTemplateError,
+		       "No closing EOC found for infinite ConstructedOf value %s",
+		       c_name);
+	    return 0;
+	}
+	ossl_template_set_infinite_length(obj, Qtrue);
+    }
+
+    rb_ivar_set(obj, SYM2ID(name), val_ary);
+    return 1;
+
+rewind:
+
+    *pp = start;
+    return 0;
+}
+
+static int
+parse_choice(VALUE obj, VALUE def, unsigned char **pp, long max_length)
+{
+    return 0; /* TODO */
+}
+
+static int
 int_ossl_template_parse(VALUE obj, VALUE def, unsigned char **pp, long max_length)
 {
     unsigned char *start, *start_unpacked;
@@ -451,19 +546,19 @@ int_ossl_template_parse(VALUE obj, VALUE def, unsigned char **pp, long max_lengt
 	ret = parse_primitive(obj, def, pp, max_length);    
     }
     else if (codec == sTEMPLATE) {
-	/* ret = parse_template(obj, def, pp, max_length); */
+	ret = parse_template(obj, def, pp, max_length);
     }
     else if (codec == sCONSTRUCTIVE) {
 	ret = parse_constructive(obj, def, pp, max_length);    
     }
     else if (codec == sSEQUENCE_OF) {
-	/* ret = parse_seq_of(obj, def, pp, max_length, offset); */    
+	ret = parse_seq_of(obj, def, pp, max_length);    
     }
     else if (codec == sSET_OF) {
-	/* ret = parse_set_of(obj, def, pp, max_length, offset); */    
+	ret = parse_set_of(obj, def, pp, max_length);    
     }
     else if (codec == sCHOICE) {
-	/* ret = parse_choice(obj, def, pp, max_length, offset); */    
+	ret = parse_choice(obj, def, pp, max_length);    
     }
     else {
     	ossl_raise(rb_eRuntimeError, 
