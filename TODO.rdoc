@@ -2,6 +2,8 @@
 
 === C parsing/encoding
 * Implement the parse/decode facilities in C
+* Support :tag_classin definition for supporting
+"PRIVATE" and "APPLICATION" DER values
 
 Skip the intermediate format of ASN.1 objects,
 parse and encode directly from template to DER
@@ -15,6 +17,11 @@ should also be possible to restrict this to e.g. (4..6) etc.
 === Set order
 
 * Take care of SET and SET OF ordering
+
+=== Matching (Ruby Template)
+
+* Perform unpacking tagged values as a first step.
+This should simplify matching.
 
 === Tests 
 
