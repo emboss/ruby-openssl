@@ -1,3 +1,7 @@
+=== 0.2.0 / 2011-04-30 [emboss]
+* Implemented C Template parsing
+except for infinite primitive values.
+
 === 0.2.0 / 2011-04-28 [emboss]
 * Implemented constructive and primitive 
   parser for C Template imlementation.

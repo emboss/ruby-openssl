@@ -2,12 +2,18 @@
 
 === C parsing/encoding
 * Implement the parse/decode facilities in C
-* Support :tag_classin definition for supporting
+* Support :tag_class in definition for supporting
 "PRIVATE" and "APPLICATION" DER values
 
 Skip the intermediate format of ASN.1 objects,
 parse and encode directly from template to DER
 and vice versa.
+
+* Nil checks for def etc.
+
+* parse_tagged_implicit: try to write new tag in-place
+and undo it again once parsed; instead of copying the
+buffer
 
 === asn1_sequence_of, asn1_set_of
 
@@ -41,7 +47,7 @@ tmp_cons seems redundant, could probably be removed
 
 === Tests 
 
-* TBD
+* ConstructiveOf primitive in declaration
 
 === String encoders
 

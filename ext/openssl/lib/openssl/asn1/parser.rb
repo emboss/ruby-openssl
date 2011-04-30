@@ -358,7 +358,7 @@ module OpenSSL::ASN1::Template
           return false
         end
         obj.instance_variable_set(definition[:name],
-          obj.instance_variable_get(definition[:name]).force_encoding('UTF-8'))
+        obj.instance_variable_get(definition[:name]).force_encoding('UTF-8'))
         true
       end
     end

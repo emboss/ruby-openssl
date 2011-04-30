@@ -22,7 +22,7 @@ module OpenSSL::ASN1
   #includes this module.
   #available options { optional: false, tag: nil, 
   #                    tagging: nil, default: nil }
-  #definition { type, name, inner_def, options, min_size, code }
+  #definition { type, name, inner_def, options, min_size, codec }
   module Template
 
     def self.included(base)
@@ -190,7 +190,11 @@ module OpenSSL::ASN1
 
   end
 
+  class Any
+    include OpenSSL::ASN1::Template
+
+    asn1_declare :ANY
+  end
+
 end
-
-
 
