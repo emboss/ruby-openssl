@@ -24,13 +24,18 @@ static ID sPRIMITIVE, sCONSTRUCTIVE, sTEMPLATE,
 
 static ID sIMPLICIT, sEXPLICIT;
 
-#define ossl_template_get_definition(o)		rb_iv_get((o), "@definition")
-#define ossl_template_get_options(o)		rb_iv_get((o), "@options")
-#define ossl_template_set_options(o, v)		rb_iv_set((o), "@options", (v))
-#define ossl_template_get_unused_bits(o)	rb_iv_get((o), "@unused_bits")
-#define ossl_template_set_unused_bits(o, v)	rb_iv_set((o), "@unused_bits", (v))
-#define ossl_template_get_infinite_length(o)	rb_iv_get((o), "@infinite_length")
-#define ossl_template_set_infinite_length(o, v)	rb_iv_set((o), "@infinite_length", (v))
+static ID sVALUE, sNEW, sMERGE;
+
+static ID sivDEFINITION, sivOPTIONS, sivUNUSED_BITS,
+	  sivINFINITE_LENGTH, sivTYPE;
+
+#define ossl_template_get_definition(o)		rb_ivar_get((o), sivDEFINITION)
+#define ossl_template_get_options(o)		rb_ivar_get((o), sivOPTIONS)
+#define ossl_template_set_options(o, v)		rb_ivar_set((o), sivOPTIONS, (v))
+#define ossl_template_get_unused_bits(o)	rb_ivar_get((o), sivUNUSED_BITS)
+#define ossl_template_set_unused_bits(o, v)	rb_ivar_set((o), sivUNUSED_BITS, (v))
+#define ossl_template_get_infinite_length(o)	rb_ivar_get((o), sivINFINITE_LENGTH)
+#define ossl_template_set_infinite_length(o, v)	rb_ivar_set((o), sivINFINITE_LENGTH, (v))
 
 #define ossl_template_hash_get_options(o)	rb_hash_aref((o), ID2SYM(sOPTIONS))
 #define ossl_template_hash_get_default(o)	rb_hash_aref((o), ID2SYM(sDEFAULT))
@@ -93,7 +98,7 @@ int_ossl_template_dup_def_with_opts(VALUE def, VALUE options)
     
     def_options = ossl_template_hash_get_options(def);
     new_options = def_options != Qnil ? 
-		  rb_funcall(def_options, rb_intern("merge"), 1, options) : 
+		  rb_funcall(def_options, sMERGE, 1, options) : 
 		  options;
 
     hash = rb_hash_new();
@@ -663,7 +668,7 @@ parse_choice(VALUE obj, VALUE def, unsigned char **pp, long max_length)
     long len, ret;
     int tag, tc, j, hlen; 
     const char *c_name;
-    VALUE name, matching_def, choice_val, options;
+    VALUE name, prev_name, matching_def, choice_val, options;
     
     name = ossl_template_hash_get_name(def);
 
@@ -675,25 +680,35 @@ parse_choice(VALUE obj, VALUE def, unsigned char **pp, long max_length)
     if (matching_def == Qnil)
 	return 0;
 
-    /* Produce a copy */
-    matching_def = rb_funcall(matching_def, rb_intern("merge"), 1, rb_hash_new());
-    rb_hash_aset(matching_def, ID2SYM(sNAME), ID2SYM(rb_intern("@value")));
+    /* Temporarily set name to @value, so that value will be set correctly in the ChoiceValue */
+    prev_name = ossl_template_hash_get_name(matching_def);
+    rb_hash_aset(matching_def, ID2SYM(sNAME), ID2SYM(sVALUE));
     options = ossl_template_hash_get_options(matching_def);
-    choice_val = rb_funcall(cChoiceValue,
-	    		    rb_intern("new"), 
+    choice_val = rb_obj_alloc(cChoiceValue);
+    rb_ivar_set(choice_val, sivTYPE, ossl_template_hash_get_type(matching_def));
+    if (options != Qnil)
+	ossl_template_set_options(choice_val, options);
+
+    /*choice_val = rb_funcall(cChoiceValue,
+	    		    sNEW, 
 			    3,
 			    ossl_template_hash_get_type(matching_def),
 			    Qnil,
-			    options == Qnil ? Qnil : ossl_template_hash_get_tag(options)); 
+			    options == Qnil ? Qnil : ossl_template_hash_get_tag(options)); */
 
     if (!(ret = int_ossl_template_parse(choice_val, matching_def, pp, max_length))) {
 	get_c_name(name, &c_name);
 	ossl_raise(eTemplateError,
 		   "Could not parse matching choice value of %s",
 		   c_name);
-	return 0;
+	ret = 0;
+	goto cleanup;
     }
     rb_ivar_set(obj, SYM2ID(name), choice_val);
+
+cleanup:
+
+    rb_hash_aset(matching_def, ID2SYM(sNAME), ID2SYM(sVALUE));
     return ret;
 }
 
@@ -701,9 +716,8 @@ static long
 parse_any(VALUE obj, VALUE def, unsigned char **pp, long max_length)
 {
     unsigned char *start;
-    long len;
+    long len, offset;
     int tag, tc, j, hlen; 
-    const char *p;
 
     VALUE rtag, name, options, value;
     
@@ -728,10 +742,8 @@ parse_any(VALUE obj, VALUE def, unsigned char **pp, long max_length)
 	}
     }
     
-    p = (const char *)start;
-    value = rb_funcall(mASN1, rb_intern("decode"), 1, rb_str_new(p, hlen + len)); 
-    rb_ivar_set(obj, SYM2ID(name), value);
-    *pp += hlen + len;
+    value = ossl_asn1_decode0(pp, hlen + len, &offset, 0, 1, 0);
+    rb_ivar_set(obj, SYM2ID(name), rb_ary_entry(value, 0));
     return hlen + len;
 }
 
@@ -1004,6 +1016,16 @@ Init_ossl_template()
     sIMPLICIT = rb_intern("IMPLICIT");
     sEXPLICIT = rb_intern("EXPLICIT");
 
+    sVALUE = rb_intern("@value");
+    sMERGE = rb_intern("merge");
+    sNEW = rb_intern("new");
+
+    sivDEFINITION = rb_intern("@definition");
+    sivOPTIONS = rb_intern("@options");
+    sivUNUSED_BITS = rb_intern("@unused_bits");
+    sivINFINITE_LENGTH = rb_intern("@infinite_length");
+    sivTYPE = rb_intern("@type");
+
     mTemplate = rb_define_module_under(mASN1, "Template");
     mParser = rb_define_module_under(mTemplate, "Parser");
     eTemplateError = rb_define_class_under(mTemplate, "TemplateError", eOSSLError);
@@ -1016,3 +1038,4 @@ Init_ossl_template()
     
     rb_define_method(mParser, "parse", ossl_template_parse, 1);
 }
+

@@ -11,9 +11,8 @@ and vice versa.
 
 * Nil checks for def etc.
 
-* parse_tagged_implicit: try to write new tag in-place
-and undo it again once parsed; instead of copying the
-buffer
+* Improve performance of ossl_asn1_decode0:
+Use rb_ivar instead of rb_iv
 
 === asn1_sequence_of, asn1_set_of
 

@@ -725,7 +725,7 @@ ossl_asn1data_to_der(VALUE self)
     return der;
 }
 
-static VALUE
+VALUE
 ossl_asn1_decode0(unsigned char **pp, long length, long *offset, long depth,
 		  int once, int yield)
 {

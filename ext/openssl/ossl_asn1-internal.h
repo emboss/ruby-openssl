@@ -10,6 +10,10 @@
 #if !defined(_OSSL_ASN1_INTERNAL_H_)
 #define _OSSL_ASN1_INTERNAL_H_
 
+VALUE
+ossl_asn1_decode0(unsigned char **pp, long length, long *offset, long depth,
+		  int once, int yield);
+
 /*
  * Ruby to ASN1 converters
  */
