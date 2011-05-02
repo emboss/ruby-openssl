@@ -1,3 +1,6 @@
+=== 0.2.0 / 2011-05-02 [emboss]
+* Further improved C Template parsing performance
+
 === 0.2.0 / 2011-05-01 [emboss]
 * Improved C Template parsing performance
 

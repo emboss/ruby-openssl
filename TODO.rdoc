@@ -12,7 +12,7 @@ and vice versa.
 * Nil checks for def etc.
 
 * Improve performance of ossl_asn1_decode0:
-Use rb_ivar instead of rb_iv
+Avoid redundant rb_str_new for value (primitive values etc.)
 
 === asn1_sequence_of, asn1_set_of
 
