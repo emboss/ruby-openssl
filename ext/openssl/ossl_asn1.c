@@ -733,7 +733,7 @@ ossl_asn1_decode0(unsigned char **pp, long length, long *offset, long depth,
 {
     unsigned char *start, *p;
     const unsigned char *p0;
-    long len, off = *offset;
+    long len, off = *offset, flag = 0;
     int hlen, tag, tc, j, infinite = 0;
     VALUE ary, asn1data, value, tag_class;
 
@@ -782,15 +782,7 @@ ossl_asn1_decode0(unsigned char **pp, long length, long *offset, long depth,
 	    if ((j & 0x01) && (len == 0)) {
 		ossl_raise(eASN1Error, "Infinite length for primitive value");
 	    }
-	    value = rb_str_new((const char *)p, len);
-	    p += len;
-	    off += len;
-	}
-	if(tag_class == sUNIVERSAL &&
-	   tag < ossl_asn1_info_size && ossl_asn1_info[tag].klass){
-	    VALUE klass = *ossl_asn1_info[tag].klass;
-	    long flag = 0;
-	    if(!rb_obj_is_kind_of(value, rb_cArray)){
+	    if(tag_class == sUNIVERSAL && tag < ossl_asn1_info_size){
 		switch(tag){
 		case V_ASN1_BOOLEAN:
 		    value = decode_bool(start, hlen+len);
@@ -816,10 +808,23 @@ ossl_asn1_decode0(unsigned char **pp, long length, long *offset, long depth,
 		    break;
 		default:
 		    /* use original value */
+		    value = rb_str_new((const char *)p, len);
 		    break;
 		}
 	    }
-            if (infinite && !(tag == V_ASN1_SEQUENCE || tag == V_ASN1_SET)){
+	    else {
+	    	value = rb_str_new((const char *)p, len);
+	    }
+	    p += len;
+	    off += len;
+	}
+	
+
+	if(tag_class == sUNIVERSAL &&
+	   tag < ossl_asn1_info_size && ossl_asn1_info[tag].klass){
+	    VALUE klass = *ossl_asn1_info[tag].klass;
+	    
+            if (infinite && tag != V_ASN1_SEQUENCE && tag != V_ASN1_SET){
                 asn1data = rb_funcall(cASN1Constructive,
                                       smNEW,
 				      4,
