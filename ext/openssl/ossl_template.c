@@ -29,6 +29,24 @@ static ID sVALUE, sMERGE;
 static ID sivDEFINITION, sivOPTIONS, sivUNUSED_BITS,
 	  sivTYPE, sivINFINITE_LENGTH;
 
+typedef struct asn1_def_st {
+    VALUE definition;
+    VALUE values[10];
+    int value_read[10];
+} asn1_def_t;
+
+#define ASN1_DEF_OPTIONS 0
+#define ASN1_DEF_TYPE 1
+#define ASN1_DEF_NAME 2
+#define ASN1_DEF_CODEC 3
+#define ASN1_DEF_INNER_DEF 4
+#define ASN1_DEF_TAG 5
+#define ASN1_DEF_TAGGING 6
+#define ASN1_DEF_OPTIONAL 7
+#define ASN1_DEF_DEFAULT_VALUE 8
+#define ASN1_DEF_MIN_SIZE 9
+#define ASN1_DEF_NUM_VALUES 10
+
 #define ossl_template_get_definition(o)		rb_ivar_get((o), sivDEFINITION)
 #define ossl_template_get_options(o)		rb_ivar_get((o), sivOPTIONS)
 #define ossl_template_set_options(o, v)		rb_ivar_set((o), sivOPTIONS, (v))
@@ -48,14 +66,12 @@ static ID sivDEFINITION, sivOPTIONS, sivUNUSED_BITS,
 #define ossl_template_hash_get_min_size(d)	rb_hash_aref((d), ID2SYM(sMIN_SIZE))
 #define ossl_template_hash_get_codec(d)	 	rb_hash_aref((d), ID2SYM(sCODEC))
 
-#define match(t, tc, et, etc, n, o)		match0((t), (tc), (et), (etc), (n), (o), 0) 
+#define match(t, tc, et, etc, n, def)		match0((t), (tc), (et), (etc), (n), (def), 0) 
 #define parse_seq_of(o, d, pp, l)		parse_constructive_of((o), (d), (pp), (l), V_ASN1_SEQUENCE)
 #define parse_set_of(o, d, pp, l)		parse_constructive_of((o), (d), (pp), (l), V_ASN1_SET)
-#define is_optional(opts)			((opts) != Qnil && \
-         					 (ossl_template_hash_get_optional((opts)) == Qtrue || \
-						 (ossl_template_hash_get_default((opts)) != Qnil)))
+#define is_optional(def)			(asn1_def_get_optional((def)) == Qtrue || asn1_def_get_default_value((def)) != Qnil)
 #define is_infinite_tag(j)			((j) & 0x01)
-#define tag_or_default(tag, type)		((tag) == Qnil ? FIX2INT((type)) : FIX2INT((tag)))
+#define tag_or_default(tag, type)		((tag) == Qnil ? NUM2INT((type)) : NUM2INT((tag)))
 #define determine_tag_class(tag)		((tag) == Qnil ? V_ASN1_UNIVERSAL : V_ASN1_CONTEXT_SPECIFIC)
 #define get_c_name(name, c_name)		if (name != Qnil) { \
     						    *c_name = (const char *)RSTRING_PTR(rb_sym_to_s(name)); \
@@ -67,24 +83,73 @@ static ID sivDEFINITION, sivOPTIONS, sivUNUSED_BITS,
 static void int_ossl_template_initialize(VALUE self, VALUE options, int parse);
 static void int_ossl_template_init_mandatory_and_defaults(VALUE self, VALUE def, int parse);
 static void int_ossl_template_init_mandatory_and_defaults_i(VALUE inner_def, VALUE self, int parse);
-static long int_ossl_template_parse(VALUE obj, VALUE def, unsigned char **pp, long max_length);
+static long int_ossl_template_parse(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length);
 static int parse_eoc(unsigned char **pp, long max_length);
-static long parse_primitive(VALUE obj, VALUE def, unsigned char **pp, long max_length, VALUE *ret_val);
-static long parse_primitive_inf(VALUE obj, VALUE def, unsigned char **pp, long max_length, int tag, VALUE *ret_val);
-static long parse_template(VALUE obj, VALUE def, unsigned char **pp, long max_length);
-static long parse_constructive(VALUE obj, VALUE def, unsigned char **pp, long max_length);
-static long parse_constructive_of(VALUE obj, VALUE def, unsigned char **pp, long max_length, int seq_or_set);
+static long parse_primitive(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length, VALUE *ret_val);
+static long parse_primitive_inf(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length, int tag, VALUE *ret_val);
+static long parse_template(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length);
+static long parse_constructive(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length);
+static long parse_constructive_of(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length, int seq_or_set);
 static VALUE parse_cons_of_templates(VALUE type, unsigned char **pp, long max_length, int is_infinite, long *read);
 static VALUE parse_cons_of_prim(VALUE type, unsigned char **pp, long max_length, int is_infinite, long *read);
-static long parse_choice(VALUE obj, VALUE def, unsigned char **pp, long max_length);
-static VALUE match_inner_def(int tag, int tc, VALUE def);
-static long parse_any(VALUE obj, VALUE def, unsigned char **pp, long max_length);
-static int parse_tagged_explicit(unsigned char **pp, long max_length, VALUE def, int *expect_eoc, int *read);
-static int parse_tagged_implicit(unsigned char **pp, long max_length, VALUE def, unsigned char **untagged);
+static long parse_choice(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length);
+static asn1_def_t *match_inner_def(int tag, int tc, asn1_def_t *def);
+static long parse_any(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length);
+static int parse_tagged_explicit(unsigned char **pp, long max_length, asn1_def_t *def, int *expect_eoc, int *read);
+static int parse_tagged_implicit(unsigned char **pp, long max_length, asn1_def_t *def, unsigned char **untagged);
 static void parse_header(unsigned char **pp, long max_length, long *len, int *j, int *tag, int *tc, int *hlen);
-static int match0(int tag, int tag_class, VALUE expected_tag, int expected_tc, VALUE name, VALUE options, int force_optional);
+static int match0(int tag, int tag_class, VALUE expected_tag, int expected_tc, VALUE name, asn1_def_t *def, int force_optional);
 static VALUE int_ossl_template_dup_def_with_opts(VALUE def, VALUE options);
 
+
+#define ASN1_DEF_DECL_FUNC(getter, index, templ_func)	static VALUE asn1_def_get_##getter(asn1_def_t *def) { \
+    							    if (!def->value_read[(index)]) { \
+								def->values[(index)] = templ_func(def->definition); \
+								def->value_read[(index)] = 1; \
+							    } \
+							    return def->values[(index)]; \
+							}
+
+ASN1_DEF_DECL_FUNC(options, ASN1_DEF_OPTIONS, ossl_template_hash_get_options)
+ASN1_DEF_DECL_FUNC(type, ASN1_DEF_TYPE, ossl_template_hash_get_type)
+ASN1_DEF_DECL_FUNC(name, ASN1_DEF_NAME, ossl_template_hash_get_name)
+ASN1_DEF_DECL_FUNC(codec, ASN1_DEF_CODEC, ossl_template_hash_get_codec)
+ASN1_DEF_DECL_FUNC(inner_def, ASN1_DEF_INNER_DEF, ossl_template_hash_get_inner_def)
+ASN1_DEF_DECL_FUNC(min_size, ASN1_DEF_MIN_SIZE, ossl_template_hash_get_min_size)
+
+ #define ASN1_DEF_DECL_FUNC_OPTS(getter, index, templ_func)	static VALUE asn1_def_get_##getter(asn1_def_t *def) { \
+    					 		    	    if (!def->value_read[(index)]) { \
+									VALUE opts = asn1_def_get_options(def); \
+									def->values[(index)] = opts == Qnil ? Qnil : templ_func(opts); \
+									def->value_read[(index)] = 1; \
+							            } \
+								    return def->values[(index)]; \
+								}
+   
+ASN1_DEF_DECL_FUNC_OPTS(tag, ASN1_DEF_TAG, ossl_template_hash_get_tag)
+ASN1_DEF_DECL_FUNC_OPTS(tagging, ASN1_DEF_TAGGING, ossl_template_hash_get_tagging)
+ASN1_DEF_DECL_FUNC_OPTS(optional, ASN1_DEF_OPTIONAL, ossl_template_hash_get_optional)
+ASN1_DEF_DECL_FUNC_OPTS(default_value, ASN1_DEF_DEFAULT_VALUE, ossl_template_hash_get_default)
+
+static void
+asn1_def_init(asn1_def_t *def)
+{
+    int i;
+    def->definition = Qnil;
+    for (i = 0; i < ASN1_DEF_NUM_VALUES; i++) { 
+	def->values[i] = Qnil;
+	def->value_read[i] = 0;
+    }
+}
+
+static asn1_def_t *
+asn1_def_new()
+{
+    asn1_def_t *def;
+    if (!(def = (asn1_def_t *)OPENSSL_malloc(sizeof(asn1_def_t))))
+	return NULL;
+    return def;
+}
 
 static VALUE
 int_ossl_template_dup_def_with_opts(VALUE def, VALUE options) 
@@ -142,22 +207,21 @@ parse_header(unsigned char **pp,
 }
 
 static int
-parse_tagged_explicit(unsigned char **pp, long max_length, VALUE def, int *expect_eoc, int *read)
+parse_tagged_explicit(unsigned char **pp, long max_length, asn1_def_t *def, int *expect_eoc, int *read)
 {
     long len;
     int tag, tc, j, hlen;
-    VALUE type, name, options, expected_tag;
+    VALUE type, name, expected_tag;
     
-    type = ossl_template_hash_get_type(def);
-    name = ossl_template_hash_get_name(def);
-    options = ossl_template_hash_get_options(def);
-    expected_tag = ossl_template_hash_get_tag(options);
+    type = asn1_def_get_type(def);
+    name = asn1_def_get_name(def);
+    expected_tag = asn1_def_get_tag(def);
 
     parse_header(pp, max_length, &len, &j, &tag, &tc, &hlen);
     
     //printf("Explicit tagged: Tag %d Len %ld j %d max_len %ld\n", tag, len, j, max_length);
 
-    if (!match(tag, tc, expected_tag, V_ASN1_CONTEXT_SPECIFIC, name, options))
+    if (!match(tag, tc, expected_tag, V_ASN1_CONTEXT_SPECIFIC, name, def))
 	return 0;
 
     *pp += hlen;
@@ -167,45 +231,44 @@ parse_tagged_explicit(unsigned char **pp, long max_length, VALUE def, int *expec
 }
 
 static int
-parse_tagged_implicit(unsigned char **pp, long max_length, VALUE def, unsigned char **untagged)
+parse_tagged_implicit(unsigned char **pp, long max_length, asn1_def_t *def, unsigned char **untagged)
 {
     long len, new_len;
     unsigned char *p;
     int tag, tc, j, hlen, new_tag, cons = 0;
-    VALUE type, name, options, expected_tag, type_def, codec, der;
+    VALUE type, name, expected_tag, type_def, codec, der;
     
-    type = ossl_template_hash_get_type(def);
-    name = ossl_template_hash_get_name(def);
-    options = ossl_template_hash_get_options(def);
-    expected_tag = ossl_template_hash_get_tag(options);
+    type = asn1_def_get_type(def);
+    name = asn1_def_get_name(def);
+    expected_tag = asn1_def_get_tag(def);
     
     parse_header(pp, max_length, &len, &j, &tag, &tc, &hlen);
     
     //printf("Implicit tagged: Tag %d Len %ld j %d max_len %ld\n", tag, len, j, max_length);
 
-    if (!match(tag, tc, expected_tag, V_ASN1_CONTEXT_SPECIFIC, name, options))
+    if (!match(tag, tc, expected_tag, V_ASN1_CONTEXT_SPECIFIC, name, def))
 	return 0;
     if (j & V_ASN1_CONSTRUCTED)
 	cons = 1;
     if (is_infinite_tag(j))
 	cons = 2;
-    new_tag = FIX2INT(expected_tag);
+    new_tag = NUM2INT(expected_tag);
     if((new_len = ASN1_object_size(cons, len, new_tag)) <= 0)
 	ossl_raise(eASN1Error, NULL);
 
     *pp += hlen;
 
-    codec = ossl_template_hash_get_codec(def);
+    codec = asn1_def_get_codec(def);
     if (SYM2ID(codec) == sSEQUENCE_OF)
 	new_tag = V_ASN1_SEQUENCE;
     else if (SYM2ID(codec) == sSET_OF)
 	new_tag = V_ASN1_SET;
     else if (SYM2ID(codec) == sTEMPLATE) {
 	type_def = ossl_template_get_definition(type);
-	new_tag = FIX2INT(ossl_template_hash_get_type(type_def));
+	new_tag = NUM2INT(ossl_template_hash_get_type(type_def));
     }
     else if (SYM2ID(codec) == sPRIMITIVE || SYM2ID(codec) == sCONSTRUCTIVE)
-	expected_tag = FIX2INT(type);
+	expected_tag = NUM2INT(type);
     else /* sANY */
 	new_tag = tag;
 
@@ -226,12 +289,12 @@ match0(int tag,
        VALUE expected_tag,
        int expected_tc,
        VALUE name,
-       VALUE options, 
+       asn1_def_t *def, 
        int force_optional)
 {
     const char *c_name;
 
-    if (tag == FIX2INT(expected_tag)) {
+    if (tag == NUM2INT(expected_tag)) {
 	if (tag_class != expected_tc) { 
 	    ossl_raise(eTemplateError,
 		       "Tag class mismatch. Expected: %d"
@@ -243,13 +306,13 @@ match0(int tag,
 	return 1;
     }
     else {
-    	if (!is_optional(options) && !force_optional) {
+    	if (!is_optional(def) && !force_optional) {
 	  get_c_name(name, &c_name);
 	  ossl_raise(eTemplateError, 
 	       	     "Mandatory value %s could not be parsed. "
 		     "Expected tag: %d Got: %d",
 		     c_name, 
-		     FIX2INT(expected_tag),
+		     NUM2INT(expected_tag),
 		     tag);
 	    return 0;
 	}
@@ -272,7 +335,7 @@ parse_eoc(unsigned char **pp, long max_length)
 }
 
 static long
-parse_primitive(VALUE obj, VALUE def, unsigned char **pp, long max_length, VALUE *ret_val)
+parse_primitive(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length, VALUE *ret_val)
 {
     unsigned char *start;
     const char *p;
@@ -280,17 +343,16 @@ parse_primitive(VALUE obj, VALUE def, unsigned char **pp, long max_length, VALUE
     int tag, tc, j, hlen, expected_tc;
     const char *c_name;
 
-    VALUE type, name, options, value;
+    VALUE type, name, value;
     
-    type = ossl_template_hash_get_type(def);
-    name = ossl_template_hash_get_name(def);
-    options = ossl_template_hash_get_options(def);
+    type = asn1_def_get_type(def);
+    name = asn1_def_get_name(def);
 
     start = *pp;
     parse_header(pp, max_length, &len, &j, &tag, &tc, &hlen);
     
     if (!is_infinite_tag(j) && (j & V_ASN1_CONSTRUCTED)) {
-	if (is_optional(options))
+	if (is_optional(def))
 	    return 0;
 	
 	get_c_name(name, &c_name);
@@ -302,7 +364,7 @@ parse_primitive(VALUE obj, VALUE def, unsigned char **pp, long max_length, VALUE
     
     //printf("Primitive: Tag %d Len %ld j %d max_len %ld\n", tag, len, j, max_length);
 
-    if (!match(tag, tc, type, V_ASN1_UNIVERSAL, name, options))
+    if (!match(tag, tc, type, V_ASN1_UNIVERSAL, name, def))
 	return 0;
 
     if (is_infinite_tag(j))
@@ -352,14 +414,14 @@ parse_primitive(VALUE obj, VALUE def, unsigned char **pp, long max_length, VALUE
 }
 
 static long
-parse_primitive_inf(VALUE obj, VALUE def, unsigned char **pp,  long max_length, int tag, VALUE *ret_val)
+parse_primitive_inf(VALUE obj, asn1_def_t *def, unsigned char **pp,  long max_length, int tag, VALUE *ret_val)
 {
     /* TODO */
     return 0;
 }
 
 static long
-parse_constructive(VALUE obj, VALUE def, unsigned char **pp, long max_length)
+parse_constructive(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length)
 {
     unsigned char *start, *start_seq;
     const char *p;
@@ -368,17 +430,18 @@ parse_constructive(VALUE obj, VALUE def, unsigned char **pp, long max_length)
     int eoc_ret = 0;
     const char *c_name;
 
-    VALUE type, name, options, value, inner_def_ary, inner_def;
+    VALUE type, name, value, inner_def_ary;
+    asn1_def_t inner_def;
     
-    type = ossl_template_hash_get_type(def);
-    name = ossl_template_hash_get_name(def);
-    options = ossl_template_hash_get_options(def);
+    asn1_def_init(&inner_def);
+    type = asn1_def_get_type(def);
+    name = asn1_def_get_name(def);
 
     start = *pp;
     parse_header(pp, max_length, &len, &j, &tag, &tc, &hlen);
     //printf("Constructive: Tag %d Len %ld j %d\n", tag, len, j);
     if (!(j & V_ASN1_CONSTRUCTED)) {
-	if (is_optional(options))
+	if (is_optional(def))
 	    return 0;
 	
 	get_c_name(name, &c_name);
@@ -388,27 +451,28 @@ parse_constructive(VALUE obj, VALUE def, unsigned char **pp, long max_length)
 	return 0;
     }
     
-    if (!match(tag, tc, type, V_ASN1_UNIVERSAL, name, options))
+    if (!match(tag, tc, type, V_ASN1_UNIVERSAL, name, def))
 	return 0;
 
     *pp += hlen;
     start_seq = *pp;
     max_length -= hlen;
 
-    inner_def_ary = ossl_template_hash_get_inner_def(def);
+    inner_def_ary = asn1_def_get_inner_def(def);
     idef_size = RARRAY_LEN(inner_def_ary);
 
     for (i = 0; i < idef_size && max_length > 0; i++) {
-	inner_def = rb_ary_entry(inner_def_ary, i);
-	if ((single_ret = int_ossl_template_parse(obj, inner_def, pp, max_length))) {
+	inner_def.definition = rb_ary_entry(inner_def_ary, i);
+	if ((single_ret = int_ossl_template_parse(obj, &inner_def, pp, max_length))) {
 	    num_parsed++;
 	    max_length -= single_ret;
 	    ret += single_ret;
 	}
+	asn1_def_init(&inner_def);
     }
 
     /* check whether num_parsed is feasible */
-    min_size = FIX2INT(ossl_template_hash_get_min_size(def));
+    min_size = NUM2INT(asn1_def_get_min_size(def));
     if (num_parsed < min_size) {
 	ossl_raise(eTemplateError,
 		   "Expected %d..%d values. Got %d",
@@ -431,22 +495,22 @@ parse_constructive(VALUE obj, VALUE def, unsigned char **pp, long max_length)
 }
 
 static long
-parse_template(VALUE obj, VALUE def, unsigned char **pp, long max_length)
+parse_template(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length)
 {
     const char *c_name;
     long ret;
-    VALUE instance, type, type_def, options, name;
+    VALUE instance, type, name;
+    asn1_def_t asn1_def;
 
     //printf("Template\n");
-
-    type = ossl_template_hash_get_type(def);
-    options = ossl_template_get_options(def);
-    name = ossl_template_hash_get_name(def);
+    asn1_def_init(&asn1_def);
+    type = asn1_def_get_type(def);
+    name = asn1_def_get_name(def);
     instance = rb_obj_alloc(type);
     int_ossl_template_initialize(instance, Qnil, 1);
-    type_def = ossl_template_get_definition(type);
-    if (!(ret = int_ossl_template_parse(instance, type_def, pp, max_length))) {
-	if (!is_optional(options)) {
+    asn1_def.definition = ossl_template_get_definition(type);
+    if (!(ret = int_ossl_template_parse(instance, &asn1_def, pp, max_length))) {
+	if (!is_optional(&asn1_def)) {
 	    get_c_name(name, &c_name);
 	    ossl_raise(eTemplateError, 
 	       	     "Mandatory template value %s could not be parsed. ",
@@ -461,18 +525,17 @@ parse_template(VALUE obj, VALUE def, unsigned char **pp, long max_length)
 }
 
 static long
-parse_constructive_of(VALUE obj, VALUE def, unsigned char **pp, long max_length, int seq_or_set)
+parse_constructive_of(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length, int seq_or_set)
 {
     unsigned char *start;
     long len, tag_ret = 0, ret = 0, eoc_ret = 0;
     int tag, tc, j, hlen; 
     const char *c_name;
 
-    VALUE type, name, options, val_ary;
+    VALUE type, name, val_ary;
     
-    type = ossl_template_hash_get_type(def);
-    name = ossl_template_hash_get_name(def);
-    options = ossl_template_hash_get_options(def);
+    type = asn1_def_get_type(def);
+    name = asn1_def_get_name(def);
 
     start = *pp;
     parse_header(pp, max_length, &len, &j, &tag, &tc, &hlen);
@@ -485,7 +548,7 @@ parse_constructive_of(VALUE obj, VALUE def, unsigned char **pp, long max_length,
 	return 0;
     }
 
-    if (!match(tag, tc, INT2FIX(seq_or_set), V_ASN1_UNIVERSAL, name, options))
+    if (!match(tag, tc, INT2NUM(seq_or_set), V_ASN1_UNIVERSAL, name, def))
 	return 0;
 
     *pp += hlen;
@@ -510,7 +573,7 @@ parse_constructive_of(VALUE obj, VALUE def, unsigned char **pp, long max_length,
 	ossl_template_set_infinite_length(obj, Qtrue);
     }
 
-    if (RARRAY_LEN(val_ary) == 0 && !is_optional(options)) {
+    if (RARRAY_LEN(val_ary) == 0 && !is_optional(def)) {
 	get_c_name(name, &c_name);
 	ossl_raise(eTemplateError, 
 	 	   "Mandatory value %s could not be parsed. Sequence is empty",
@@ -529,9 +592,11 @@ parse_cons_of_templates(VALUE type, unsigned char **pp, long max_length, int is_
     unsigned char *offset;
     long t_read = 0;
     VALUE val_ary = rb_ary_new();
-    VALUE instance, type_def;
+    VALUE instance;
+    asn1_def_t asn1_def;
 
-    type_def = ossl_template_get_definition(type);
+    asn1_def_init(&asn1_def);
+    asn1_def.definition = ossl_template_get_definition(type);
 
     while (max_length > 0 || is_infinite) {
 	offset = *pp;
@@ -544,7 +609,7 @@ parse_cons_of_templates(VALUE type, unsigned char **pp, long max_length, int is_
 	//printf("ConstructiveOf Template max_len: %ld\n", max_length);
 	instance = rb_obj_alloc(type);
 	int_ossl_template_initialize(instance, Qnil, 1);
-	if (!(t_read = int_ossl_template_parse(instance, type_def, pp, max_length))) {
+	if (!(t_read = int_ossl_template_parse(instance, &asn1_def, pp, max_length))) {
 	    ossl_raise(eTemplateError,
 		       "Parsing template of type %s failed",
 		       rb_class2name(type));
@@ -565,11 +630,13 @@ parse_cons_of_prim(VALUE type, unsigned char **pp, long max_length, int is_infin
     unsigned char *offset;
     long p_read;
     VALUE val_ary = rb_ary_new();
-    VALUE type_def, prim;
+    VALUE prim;
+    asn1_def_t type_def;
 
-    type_def = rb_hash_new();
-    rb_hash_aset(type_def, ID2SYM(sTYPE), type);
-    rb_hash_aset(type_def, ID2SYM(sCODEC), ID2SYM(sPRIMITIVE));
+    asn1_def_init(&type_def);
+    type_def.definition = rb_hash_new();
+    rb_hash_aset(type_def.definition, ID2SYM(sTYPE), type);
+    rb_hash_aset(type_def.definition, ID2SYM(sCODEC), ID2SYM(sPRIMITIVE));
 
     while (max_length > 0 || is_infinite) {
 	offset = *pp;
@@ -580,7 +647,7 @@ parse_cons_of_prim(VALUE type, unsigned char **pp, long max_length, int is_infin
 	}
 
 	//printf("ConstructiveOf Primitive\n");
-	if (!(p_read = parse_primitive(Qnil, type_def, pp, max_length, &prim))) {
+	if (!(p_read = parse_primitive(Qnil, &type_def, pp, max_length, &prim))) {
 	    ossl_raise(eTemplateError,
 		       "ConstructiveOf: Parsing template of type %s failed",
 		       rb_class2name(type));
@@ -601,33 +668,39 @@ parse_cons_of_prim(VALUE type, unsigned char **pp, long max_length, int is_infin
     return val_ary;
 }
 
-static VALUE 
-match_inner_def(int tag, int tc, VALUE def)
+static asn1_def_t * 
+match_inner_def(int tag, int tc, asn1_def_t *def)
 {
     int i, first_any;
     long idef_size;
     const char *c_name;
-    VALUE inner_def_ary, inner_def, type,
+    VALUE inner_def_ary, inner_def_val, type,
 	  type_def, real_type,
-	  options, name, codec, rtag;
+	  name, codec, rtag;
+    asn1_def_t *asn1_def;
 
-    inner_def_ary = ossl_template_hash_get_inner_def(def);
+    inner_def_ary = asn1_def_get_inner_def(def);
     if (inner_def_ary == Qnil) {
 	ossl_raise(eTemplateError, "Choice with no inner_def");
-	return Qnil;
+	return NULL;
     }
-    name = ossl_template_hash_get_name(def);
+    name = asn1_def_get_name(def);
+
+    if (!(asn1_def = (asn1_def_t *)OPENSSL_malloc(sizeof(asn1_def_t)))) {
+	ossl_raise(rb_eRuntimeError, NULL);
+	return NULL;
+    }
+    asn1_def_init(asn1_def);
 
     idef_size = RARRAY_LEN(inner_def_ary);
     for (i = 0; i < idef_size; i++) {
-	inner_def = rb_ary_entry(inner_def_ary, i);
-	type = ossl_template_hash_get_type(inner_def);
-	options = ossl_template_hash_get_options(inner_def);
-	codec = ossl_template_hash_get_codec(inner_def);
+	asn1_def->definition = rb_ary_entry(inner_def_ary, i);
+	type = asn1_def_get_type(asn1_def);
+	codec = asn1_def_get_codec(asn1_def);
 	if (SYM2ID(codec) == sANY) {
-	    rtag = options == Qnil ? Qnil : ossl_template_hash_get_tag(options);
-	    if (rtag != Qnil && match0(tag, tc, rtag, V_ASN1_CONTEXT_SPECIFIC, name, options, 1)) 
-		return inner_def;
+	    rtag = asn1_def_get_options(asn1_def);
+	    if (rtag != Qnil && match0(tag, tc, rtag, V_ASN1_CONTEXT_SPECIFIC, name, asn1_def, 1)) 
+		return asn1_def;
 	    else
 		first_any = i;
 	}
@@ -639,54 +712,58 @@ match_inner_def(int tag, int tc, VALUE def)
 	    else {
 		real_type = type;
 	    }
-	    if (match0(tag, tc, real_type, V_ASN1_UNIVERSAL, name, options, 1)) {
-		return inner_def;
+	    if (match0(tag, tc, real_type, V_ASN1_UNIVERSAL, name, asn1_def, 1)) {
+		return asn1_def;
 	    }
 	}
+	asn1_def_init(asn1_def);
     }
 
-    if (first_any != -1) 
-	return rb_ary_entry(inner_def_ary, first_any);
+    if (first_any != -1) {
+	asn1_def_init(asn1_def);
+	asn1_def->definition = rb_ary_entry(inner_def_ary, first_any);
+	return asn1_def;
+    }
 
-    options = ossl_template_get_options(def);
-
-    if (!is_optional(options)) {
+    if (!is_optional(def)) {
 	get_c_name(name, &c_name);
+	OPENSSL_free(asn1_def);
 	ossl_raise(eTemplateError,
 		   "Mandatory choice value %s not found",
 		   c_name);
-	return Qnil;
+	return NULL;
     }
 
-    return Qnil;
+    OPENSSL_free(asn1_def);
+    return NULL;
 }
     
 static long
-parse_choice(VALUE obj, VALUE def, unsigned char **pp, long max_length)
+parse_choice(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length)
 {
     unsigned char *start;
     long len, ret;
     int tag, tc, j, hlen; 
     const char *c_name;
-    VALUE name, prev_name, matching_def, choice_val, options;
+    VALUE name, prev_name, choice_val, options;
+    asn1_def_t *matching_def;
     VALUE args[3];
     
-    name = ossl_template_hash_get_name(def);
+    name = asn1_def_get_name(def);
 
     start = *pp;
     parse_header(pp, max_length, &len, &j, &tag, &tc, &hlen);
     //printf("Choice: Tag %d Len %ld j %d\n", tag, len, j);
     
-    matching_def = match_inner_def(tag, tc, def);
-    if (matching_def == Qnil)
+    if (!(matching_def = match_inner_def(tag, tc, def)))
 	return 0;
 
-    /* Temporarily set name to @value, so that value will be set correctly in the ChoiceValue */
-    prev_name = ossl_template_hash_get_name(matching_def);
-    rb_hash_aset(matching_def, ID2SYM(sNAME), ID2SYM(sVALUE));
-    options = ossl_template_hash_get_options(matching_def);
+    /* Set name to @value, so that value will be set correctly in the ChoiceValue */
+    matching_def->values[ASN1_DEF_NAME] = ID2SYM(sVALUE);
+    matching_def->value_read[ASN1_DEF_NAME] = 1;
+    options = asn1_def_get_options(matching_def);
     choice_val = rb_obj_alloc(cChoiceValue);
-    rb_ivar_set(choice_val, sivTYPE, ossl_template_hash_get_type(matching_def));
+    rb_ivar_set(choice_val, sivTYPE, asn1_def_get_type(matching_def));
     if (options != Qnil)
 	ossl_template_set_options(choice_val, options);
 
@@ -702,30 +779,29 @@ parse_choice(VALUE obj, VALUE def, unsigned char **pp, long max_length)
 
 cleanup:
 
-    rb_hash_aset(matching_def, ID2SYM(sNAME), ID2SYM(sVALUE));
+    if (matching_def) OPENSSL_free(matching_def);
     return ret;
 }
 
 static long
-parse_any(VALUE obj, VALUE def, unsigned char **pp, long max_length)
+parse_any(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length)
 {
     unsigned char *start;
     long len;
     int tag, tc, j, hlen; 
 
-    VALUE rtag, name, options, value;
+    VALUE rtag, name, value;
     
-    name = ossl_template_hash_get_name(def);
-    options = ossl_template_hash_get_options(def);
+    name = asn1_def_get_name(def);
 
     start = *pp;
     parse_header(pp, max_length, &len, &j, &tag, &tc, &hlen);
     //printf("Any: Tag %d Len %ld j %d\n", tag, len, j);
     
-    if (is_optional(options)) {
-	rtag = ossl_template_hash_get_tag(options); 
+    if (is_optional(def)) {
+	rtag = asn1_def_get_tag(def); 
 	if (rtag != Qnil) {
-	    if (!match(tag, tc, rtag, tc, name, options)) {
+	    if (!match(tag, tc, rtag, tc, name, def)) {
 		*pp = start;
 		return 0;
 	    }
@@ -742,22 +818,20 @@ parse_any(VALUE obj, VALUE def, unsigned char **pp, long max_length)
 }
 
 static long
-int_ossl_template_parse(VALUE obj, VALUE def, unsigned char **pp, long max_length)
+int_ossl_template_parse(VALUE obj, asn1_def_t *def, unsigned char **pp, long max_length)
 {
     unsigned char *start, *untagged = NULL, *original = NULL;
     long ret = 0, eoc_ret = 0;
     int expect_eoc = 0, tag_ret = 0;
-    VALUE type, options, tagging, name;
+    VALUE type, tagging, name;
     ID codec, id_tagging;
     const char *c_name;
    
     //printf("Inner parse\n");
     start = *pp; 
-    type = ossl_template_hash_get_type(def);
-    options = ossl_template_hash_get_options(def);
-    tagging = options == Qnil ? Qnil : ossl_template_hash_get_tagging(options);
-    codec = SYM2ID(ossl_template_hash_get_codec(def));
-
+    type = asn1_def_get_type(def);
+    tagging = asn1_def_get_tagging(def);
+    codec = SYM2ID(asn1_def_get_codec(def));
 
     /* Don't unpack tagging for choices, the info is needed when parsing them */
     if (tagging != Qnil && codec != sCHOICE) {
@@ -776,6 +850,7 @@ int_ossl_template_parse(VALUE obj, VALUE def, unsigned char **pp, long max_lengt
 	}
     }
     
+
     if (codec == sPRIMITIVE) {
 	ret = parse_primitive(obj, def, pp, max_length - tag_ret, NULL);    
     }
@@ -800,13 +875,13 @@ int_ossl_template_parse(VALUE obj, VALUE def, unsigned char **pp, long max_lengt
     else {
     	ossl_raise(rb_eRuntimeError, 
 		   "Unknown codec: %s", 
-		   RSTRING_PTR(rb_sym_to_s(ossl_template_hash_get_codec(def))));
+		   RSTRING_PTR(rb_sym_to_s(asn1_def_get_codec(def))));
 	return 0; /* dummy */
     }
 
     if (tag_ret && expect_eoc) {
        	if (!(eoc_ret = parse_eoc(pp, max_length))) {
-	    name = ossl_template_hash_get_name(def);
+	    name = asn1_def_get_name(def);
 	    get_c_name(name, &c_name);
 	    ossl_raise(eTemplateError,
 		   "No closing EOC found for infinite lenght explicitly tagged value %s",
@@ -839,6 +914,7 @@ ossl_template_parse(VALUE self, VALUE der)
     unsigned char *p;
     long max_length, read;
     volatile VALUE tmp;
+    asn1_def_t asn1_def;
 
     //printf("Top level parse.\n");
 
@@ -851,6 +927,8 @@ ossl_template_parse(VALUE self, VALUE der)
 	        rb_class2name(CLASS_OF(self)));
     }
 
+    asn1_def_init(&asn1_def);
+    asn1_def.definition = def;
     der = ossl_to_der_if_possible(der);
     obj = rb_obj_alloc(self);
     int_ossl_template_initialize(obj, Qnil, 1);
@@ -858,7 +936,7 @@ ossl_template_parse(VALUE self, VALUE der)
     p = (unsigned char *)RSTRING_PTR(tmp);
     max_length = RSTRING_LEN(tmp);
 
-    if (!(read = int_ossl_template_parse(obj, def, &p, max_length))) {
+    if (!(read = int_ossl_template_parse(obj, &asn1_def, &p, max_length))) {
 	VALUE type = ossl_template_hash_get_type(def);
 	ossl_raise(eTemplateError,
 	           "Could not match type %s",
@@ -904,7 +982,10 @@ ossl_template_initialize(int argc, VALUE *argv, VALUE self)
 	der = ossl_to_der_if_possible(der);
 	tmp = rb_str_new4(StringValue(der));
 	p = (unsigned char *)RSTRING_PTR(tmp);
-	if (!int_ossl_template_parse(self, def, &p, RSTRING_LEN(tmp))) {
+	asn1_def_t asn1_def;
+	asn1_def_init(&asn1_def);
+	asn1_def.definition = def;
+	if (!int_ossl_template_parse(self, &asn1_def, &p, RSTRING_LEN(tmp))) {
 	    VALUE type = ossl_template_hash_get_type(def);
 	    ossl_raise(eTemplateError,
 		       "Could not match type %s",
@@ -945,7 +1026,10 @@ int_ossl_template_init_mandatory_and_defaults_i(VALUE inner_def, VALUE self, int
 	default_val = ossl_template_hash_get_default(options);
 
     if (!parse) {
-	mandatory = !is_optional(options);
+	mandatory = options == Qnil || 
+	            !(ossl_template_hash_get_optional(options) == Qtrue ||
+		    ossl_template_hash_get_default_value(options) != Qnil);
+
 	type = ossl_template_hash_get_type(inner_def);
 	name = ossl_template_hash_get_name(inner_def);
 	if (mandatory && 

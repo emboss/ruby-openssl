@@ -1,5 +1,9 @@
 === 0.2.0 / 2011-05-07 [emboss]
 * Further improved C Template parsing performance
+* Simplified ossl_asn1_decode0
+
+=== 0.2.0 / 2011-05-07 [emboss]
+* Further improved C Template parsing performance
 
 === 0.2.0 / 2011-05-02 [emboss]
 * Further improved C Template parsing performance
