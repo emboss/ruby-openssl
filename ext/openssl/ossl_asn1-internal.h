@@ -11,8 +11,8 @@
 #define _OSSL_ASN1_INTERNAL_H_
 
 VALUE
-ossl_asn1_decode0(unsigned char **pp, long length, long *offset, long depth,
-		  int once, int yield);
+ossl_asn1_decode0(unsigned char **pp, long length, int depth,
+		  int yield, long *num_read);
 
 /*
  * Ruby to ASN1 converters

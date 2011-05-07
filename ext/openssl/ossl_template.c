@@ -24,10 +24,10 @@ static ID sPRIMITIVE, sCONSTRUCTIVE, sTEMPLATE,
 
 static ID sIMPLICIT, sEXPLICIT;
 
-static ID sVALUE, sNEW, sMERGE;
+static ID sVALUE, sMERGE;
 
 static ID sivDEFINITION, sivOPTIONS, sivUNUSED_BITS,
-	  sivINFINITE_LENGTH, sivTYPE;
+	  sivTYPE, sivINFINITE_LENGTH;
 
 #define ossl_template_get_definition(o)		rb_ivar_get((o), sivDEFINITION)
 #define ossl_template_get_options(o)		rb_ivar_get((o), sivOPTIONS)
@@ -669,6 +669,7 @@ parse_choice(VALUE obj, VALUE def, unsigned char **pp, long max_length)
     int tag, tc, j, hlen; 
     const char *c_name;
     VALUE name, prev_name, matching_def, choice_val, options;
+    VALUE args[3];
     
     name = ossl_template_hash_get_name(def);
 
@@ -688,13 +689,6 @@ parse_choice(VALUE obj, VALUE def, unsigned char **pp, long max_length)
     rb_ivar_set(choice_val, sivTYPE, ossl_template_hash_get_type(matching_def));
     if (options != Qnil)
 	ossl_template_set_options(choice_val, options);
-
-    /*choice_val = rb_funcall(cChoiceValue,
-	    		    sNEW, 
-			    3,
-			    ossl_template_hash_get_type(matching_def),
-			    Qnil,
-			    options == Qnil ? Qnil : ossl_template_hash_get_tag(options)); */
 
     if (!(ret = int_ossl_template_parse(choice_val, matching_def, pp, max_length))) {
 	get_c_name(name, &c_name);
@@ -716,7 +710,7 @@ static long
 parse_any(VALUE obj, VALUE def, unsigned char **pp, long max_length)
 {
     unsigned char *start;
-    long len, offset;
+    long len;
     int tag, tc, j, hlen; 
 
     VALUE rtag, name, options, value;
@@ -742,8 +736,8 @@ parse_any(VALUE obj, VALUE def, unsigned char **pp, long max_length)
 	}
     }
     
-    value = ossl_asn1_decode0(pp, hlen + len, &offset, 0, 1, 0);
-    rb_ivar_set(obj, SYM2ID(name), rb_ary_entry(value, 0));
+    value = ossl_asn1_decode0(pp, hlen + len, 0, 0, NULL);
+    rb_ivar_set(obj, SYM2ID(name), value);
     return hlen + len;
 }
 
@@ -1018,7 +1012,6 @@ Init_ossl_template()
 
     sVALUE = rb_intern("@value");
     sMERGE = rb_intern("merge");
-    sNEW = rb_intern("new");
 
     sivDEFINITION = rb_intern("@definition");
     sivOPTIONS = rb_intern("@options");
