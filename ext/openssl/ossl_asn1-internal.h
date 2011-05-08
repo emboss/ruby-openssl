@@ -38,5 +38,4 @@ VALUE decode_null(unsigned char* der, int length);
 VALUE decode_obj(unsigned char* der, int length);
 VALUE decode_time(unsigned char* der, int length);
 
-
 #endif

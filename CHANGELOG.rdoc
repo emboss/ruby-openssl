@@ -1,4 +1,8 @@
 === 0.2.0 / 2011-05-08 [emboss]
+* Split C Template implementation into
+  separate files 
+
+=== 0.2.0 / 2011-05-08 [emboss]
 * Improved OpenSSL::ASN1.decode performance
 
 === 0.2.0 / 2011-05-07 [emboss]
