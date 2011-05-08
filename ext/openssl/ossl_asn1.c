@@ -11,6 +11,9 @@
 #include "ossl.h"
 #include "ossl_asn1-internal.h"
 
+static VALUE ossl_asn1_initialize(int argc, VALUE *argv, VALUE self);
+static VALUE ossl_asn1eoc_initialize(VALUE self);
+
 #if defined(HAVE_SYS_TIME_H)
 #  include <sys/time.h>
 #elif !defined(NT) && !defined(_WIN32)
@@ -777,15 +780,16 @@ int_ossl_asn1_decode0_prim(unsigned char **pp, long length,
 
     if (tc == sUNIVERSAL && tag < ossl_asn1_info_size && ossl_asn1_info[tag].klass) {
 	VALUE klass = *ossl_asn1_info[tag].klass;
-	VALUE args[1] = { value };
-	asn1data = rb_class_new_instance(1, args, klass);
+	VALUE args[4] = { value, INT2NUM(tag), Qnil, ID2SYM(tc) };
+	asn1data = rb_obj_alloc(klass);
+	ossl_asn1_initialize(4, args, asn1data);
 	if(tag == V_ASN1_BIT_STRING){
 	    rb_ivar_set(asn1data, sivUNUSED_BITS, LONG2NUM(flag));
 	}
     }
     else {
-	VALUE args[3] = { value, INT2NUM(tag), ID2SYM(tc) };
-	asn1data = rb_class_new_instance(3, args, cASN1Data);
+	asn1data = rb_obj_alloc(cASN1Data);
+	ossl_asn1data_initialize(asn1data, value, INT2NUM(tag), ID2SYM(tc));
     }
     
     return asn1data;
@@ -802,7 +806,8 @@ int_parse_eoc(unsigned char **pp, long length, long *num_read)
     p = *pp;
     if (p[0] == 0x00 && p[1] == 0x00) {
 	*pp += 2;
-	*num_read = 2;
+	if (num_read)
+	    *num_read = 2;
 	return 1;
     }
     else {
@@ -814,15 +819,18 @@ static VALUE
 int_ossl_asn1_decode0_cons(unsigned char **pp, long length, int depth, int yield,
 			   int j, int tag, VALUE tc, long *num_read) 
 {
-    VALUE value, asn1data;
+    VALUE value, asn1data, ary;
+    VALUE *elems;
     int infinite = (j == 0x21);
-    VALUE ary = rb_ary_new();
+
+    ary = rb_ary_new();
 
     while (length > 0 || infinite) {
 	long inner_read = 0;
 	
 	if (infinite && int_parse_eoc(pp, length, &inner_read)) {
-	    value = rb_class_new_instance(0, 0, cASN1EndOfContent);
+	    value = rb_obj_alloc(cASN1EndOfContent);
+	    ossl_asn1eoc_initialize(value);
 	    rb_ary_push(ary, value);
 	    *num_read += inner_read;
 	    break;
@@ -837,17 +845,18 @@ int_ossl_asn1_decode0_cons(unsigned char **pp, long length, int depth, int yield
     if (tc == sUNIVERSAL && (tag == V_ASN1_SEQUENCE || V_ASN1_SET)) {
 	VALUE klass = *ossl_asn1_info[tag].klass;
 	if (infinite && tag != V_ASN1_SEQUENCE && tag != V_ASN1_SET) {
-	    VALUE args[4] = { ary, INT2NUM(tag), Qnil, ID2SYM(tc) };
-	    asn1data = rb_class_new_instance(4, args, cASN1Constructive);
+	    asn1data = rb_obj_alloc(cASN1Constructive);
         }
 	else {
-	    VALUE args[1] = { ary };
-	    asn1data = rb_class_new_instance(1, args, klass);
+	    asn1data = rb_obj_alloc(klass);
 	}
+	VALUE args[4] = { ary, INT2NUM(tag), Qnil, ID2SYM(tc) };
+	ossl_asn1_initialize(4, args, asn1data);
     }
     else {
 	VALUE args[3] = { ary, INT2NUM(tag), ID2SYM(tc) };
-	asn1data = rb_class_new_instance(3, args, cASN1Data);
+	asn1data = rb_obj_alloc(cASN1Data);
+	ossl_asn1data_initialize(asn1data, ary, INT2NUM(tag), ID2SYM(tc));
     }
 
     if (infinite)
