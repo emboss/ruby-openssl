@@ -96,11 +96,11 @@ ossl_template_initialize(int argc, VALUE *argv, VALUE self)
 
     rb_scan_args(argc, argv, "01", &der);
     if (!NIL_P(der)) {
+	asn1_def_t asn1_def;
 	def = ossl_template_get_definition(CLASS_OF(self));
 	der = ossl_to_der_if_possible(der);
 	tmp = rb_str_new4(StringValue(der));
 	p = (unsigned char *)RSTRING_PTR(tmp);
-	asn1_def_t asn1_def;
 	asn1_def_init(&asn1_def);
 	asn1_def.definition = def;
 	if (!int_ossl_template_parse(self, &asn1_def, &p, RSTRING_LEN(tmp))) {
@@ -136,7 +136,7 @@ int_ossl_template_initialize(VALUE self, VALUE options, int parse)
 static void
 int_ossl_template_init_mandatory_and_defaults_i(VALUE inner_def, VALUE self, int parse)
 {
-    VALUE options, optional, default_val = Qnil, type, name;
+    VALUE options, optional, default_val = Qnil, type, name = Qnil;
     int mandatory;
 
     options = ossl_template_hash_get_options(inner_def);
@@ -146,7 +146,7 @@ int_ossl_template_init_mandatory_and_defaults_i(VALUE inner_def, VALUE self, int
     if (!parse) {
 	mandatory = options == Qnil || 
 	            !(ossl_template_hash_get_optional(options) == Qtrue ||
-		    ossl_template_hash_get_default_value(options) != Qnil);
+		    default_val != Qnil);
 
 	type = ossl_template_hash_get_type(inner_def);
 	name = ossl_template_hash_get_name(inner_def);

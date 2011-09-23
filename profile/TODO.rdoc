@@ -1,0 +1,70 @@
+== OpenSSL::ASN1::Template
+
+=== C parsing/encoding
+* Implement the parse/decode facilities in C
+* Support :tag_class in definition for supporting
+"PRIVATE" and "APPLICATION" DER values
+
+Skip the intermediate format of ASN.1 objects,
+parse and encode directly from template to DER
+and vice versa.
+
+* Nil checks for def etc.
+
+* Improve performance of ossl_asn1_decode0:
+
+=== asn1_sequence_of, asn1_set_of
+
+Currently the allowed sizes are generally (0..inf). It
+should also be possible to restrict this to e.g. (4..6) etc.
+
+=== Set order
+
+* Take care of SET and SET OF ordering
+
+=== Matching (Ruby Template)
+
+* Perform unpacking tagged values as a first step.
+This could simplify matching.
+
+=== ConstructiveParser
+* handle_missing seems redundant. Just try to parse
+each of the inner definitions instead. This would also
+imply that the max_size check in check_size_cons could
+be abandoned.
+
+=== ConstructiveOfParser
+* Set infinite length on the parsed object and respect
+it when parsing
+
+=== unpack_explicit
+* match unpacked value again
+
+=== asn1data_to_der (ossl_asn1.c)
+tmp_cons seems redundant, could probably be removed
+
+=== Tests 
+
+* ConstructiveOf primitive in declaration
+
+=== String encoders
+
+Introduce encoders that force a certain encoding that is specific to the string type?
+
+== Functionality
+
+=== Certificate
+* PKey from SubjectPublicKeyInfo
+* Certificate creation: extensions etc
+
+=== SignedData
+* Verify on global level
+* add_signature on global level
+* More CMS attributes
+
+=== SignerInfo
+* Verify using certificate
+
+=== Key Agreement
+* RDoc
+
